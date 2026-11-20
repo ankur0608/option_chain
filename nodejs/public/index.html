@@ -1,0 +1,676 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NSE Option Chain — Live Excel &amp; Stream</title>
+    <style>
+      :root {
+        --bg: #f4f6fa;
+        --surface: #ffffff;
+        --border: #dce2ee;
+        --navy: #1f3864;
+        --navy-dark: #162849;
+        --strike-bg: #eef2fa;
+        --atm-bg: #fff2cc;
+        --itm-bg: #faf6e8;
+        --text: #1b2433;
+        --muted: #5a667a;
+        --green: #0b7a43;
+        --red: #c62828;
+        --flash-up: #d1fae5;
+        --flash-down: #fee2e2;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        font-size: 0.875rem;
+      }
+
+      .app-header {
+        background: var(--navy);
+        color: #fff;
+        padding: 0.75rem 1.25rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem 1.25rem;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        font-weight: 700;
+        font-size: 1rem;
+      }
+
+      .status-pill {
+        font-size: 0.75rem;
+        padding: 0.2rem 0.55rem;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.16);
+        font-weight: 600;
+      }
+
+      .status-pill.live {
+        background: #137333;
+      }
+
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        align-items: center;
+      }
+
+      .controls label {
+        font-size: 0.75rem;
+        color: #dbe4f5;
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+      }
+
+      select,
+      input,
+      button,
+      .btn-link {
+        font: inherit;
+        border-radius: 6px;
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        padding: 0.38rem 0.65rem;
+      }
+
+      select,
+      input {
+        background: #fff;
+        color: var(--text);
+      }
+
+      button,
+      .btn-link {
+        background: #2f5597;
+        color: #fff;
+        cursor: pointer;
+        text-decoration: none;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+      }
+
+      button:hover,
+      .btn-link:hover {
+        background: #3a66b3;
+      }
+
+      .btn-excel {
+        background: #107c41;
+        border-color: #107c41;
+      }
+
+      .btn-excel:hover {
+        background: #15944f;
+      }
+
+      .summary-bar {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 0.65rem;
+        padding: 0.75rem 1.25rem;
+      }
+
+      .stat-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 0.55rem 0.8rem;
+      }
+
+      .stat-label {
+        font-size: 0.72rem;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+      }
+
+      .stat-value {
+        font-size: 1rem;
+        font-weight: 700;
+        margin-top: 0.15rem;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .main-panel {
+        padding: 0 1.25rem 1.25rem;
+      }
+
+      .table-wrapper {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        overflow: auto;
+        max-inline-size: 100%;
+        max-block-size: calc(100vh - 200px);
+        container-type: inline-size;
+        content-visibility: auto;
+        contain-intrinsic-size: auto 100% auto 600px;
+      }
+
+      @supports not (content-visibility: auto) {
+        .table-wrapper {
+          contain: layout style paint;
+        }
+      }
+
+      table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        font-variant-numeric: tabular-nums;
+        --label-1: "CE Vol";
+        --label-2: "CE IV";
+        --label-3: "Strike";
+        --label-4: "Diff of OI";
+        --label-5: "PE IV";
+        --label-6: "PE Vol";
+      }
+
+      caption {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+      }
+
+      thead {
+        position: sticky;
+        inset-block-start: 0;
+        z-index: 2;
+      }
+
+      th,
+      td {
+        padding: 0.34rem 0.28rem;
+        border-bottom: 1px solid var(--border);
+        border-right: 1px solid var(--border);
+        white-space: nowrap;
+        text-align: right;
+        font-size: 0.72rem;
+      }
+
+      thead th {
+        background: var(--navy);
+        color: #fff;
+        text-align: center;
+        font-weight: 600;
+        border-color: #2f4b7c;
+      }
+
+      thead tr.group-row th {
+        background: var(--navy-dark);
+        font-size: 0.75rem;
+        letter-spacing: 0.04em;
+      }
+
+      tbody th.strike-cell {
+        background: var(--strike-bg);
+        color: var(--navy);
+        font-weight: 700;
+        text-align: center;
+      }
+
+      tbody td.diff-oi-cell {
+        font-weight: 700;
+        text-align: right;
+        background: #fbfbfc;
+      }
+
+      tbody tr.atm-row th.strike-cell {
+        background: var(--atm-bg);
+        font-weight: 700;
+      }
+
+      tbody tr.atm-row td.diff-oi-cell {
+        background: var(--atm-bg);
+      }
+
+      tbody tr.ce-itm td.ce-side {
+        background: var(--itm-bg);
+      }
+
+      tbody tr.pe-itm td.pe-side {
+        background: var(--itm-bg);
+      }
+
+      .pos {
+        color: var(--green);
+        font-weight: 600;
+      }
+
+      .neg {
+        color: var(--red);
+        font-weight: 600;
+      }
+
+      .flash-up {
+        background: var(--flash-up) !important;
+        transition: background 0.6s ease-out;
+      }
+
+      .flash-down {
+        background: var(--flash-down) !important;
+        transition: background 0.6s ease-out;
+      }
+
+      @container (width < 640px) {
+        table,
+        thead,
+        tbody,
+        tr,
+        th,
+        td {
+          display: block;
+        }
+
+        thead {
+          display: none;
+        }
+
+        tr {
+          margin-block-end: 0.85rem;
+          border: 1px solid var(--border);
+          border-radius: 6px;
+          overflow: hidden;
+        }
+
+        tbody th.strike-cell {
+          position: sticky;
+          inset-block-start: 0;
+          z-index: 2;
+          text-align: left;
+        }
+
+        tbody th.strike-cell::before {
+          content: var(--label-3) ": ";
+        }
+
+        td {
+          display: flex;
+          justify-content: space-between;
+          text-align: right;
+        }
+
+        td:nth-child(1)::before { content: var(--label-1) ": "; color: var(--muted); }
+        td:nth-child(2)::before { content: var(--label-2) ": "; color: var(--muted); }
+        td:nth-child(4)::before { content: var(--label-4) ": "; color: var(--muted); }
+        td:nth-child(5)::before { content: var(--label-5) ": "; color: var(--muted); }
+        td:nth-child(6)::before { content: var(--label-6) ": "; color: var(--muted); }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="app-header">
+      <div class="brand">
+        <span>NSE Option Chain</span>
+        <span id="connStatus" class="status-pill">Connecting...</span>
+      </div>
+      <div class="controls">
+        <label>
+          Symbol
+          <select id="symbolSelect">
+            <option value="NIFTY">NIFTY</option>
+            <option value="BANKNIFTY">BANKNIFTY</option>
+            <option value="FINNIFTY">FINNIFTY</option>
+            <option value="MIDCPNIFTY">MIDCPNIFTY</option>
+            <option value="NIFTYNXT50">NIFTYNXT50</option>
+          </select>
+        </label>
+        <label>
+          Custom
+          <input id="customSymbol" type="text" placeholder="e.g. RELIANCE" size="10" />
+        </label>
+        <button id="loadCustomBtn" type="button">Load</button>
+        <label>
+          Expiry
+          <select id="expirySelect"></select>
+        </label>
+        <label>
+          Rows
+          <select id="strikesSelect">
+            <option value="5" selected>5 + 5 (10 rows)</option>
+            <option value="10">10 + 10 (20 rows)</option>
+            <option value="15">15 + 15 (30 rows)</option>
+            <option value="0">All strikes</option>
+          </select>
+        </label>
+        <button id="scrollAtmBtn" type="button">Jump to ATM</button>
+        <a class="btn-link btn-excel" href="/download.xlsx">Download Excel (.xlsx)</a>
+        <a class="btn-link" href="/download.csv">Download CSV</a>
+      </div>
+    </header>
+
+    <section class="summary-bar" aria-label="Market Summary">
+      <div class="stat-card">
+        <div class="stat-label">Spot Price</div>
+        <div id="spotVal" class="stat-value">-</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">NSE Timestamp</div>
+        <div id="nseTimeVal" class="stat-value">-</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Total CE OI</div>
+        <div id="ceOiVal" class="stat-value">-</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Total PE OI</div>
+        <div id="peOiVal" class="stat-value">-</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">PCR (PE / CE)</div>
+        <div id="pcrVal" class="stat-value">-</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Last Synced</div>
+        <div id="localSyncVal" class="stat-value">-</div>
+      </div>
+    </section>
+
+    <main class="main-panel">
+      <div
+        id="tableWrapper"
+        tabindex="0"
+        role="region"
+        aria-labelledby="oc-table-caption"
+        class="table-wrapper"
+      >
+        <table>
+          <caption id="oc-table-caption">
+            Live NSE Option Chain Calls and Puts by Strike Price
+          </caption>
+          <thead>
+            <tr class="group-row">
+              <th colspan="2">CALLS</th>
+              <th>STRIKE</th>
+              <th>DIFF OF OI</th>
+              <th colspan="2">PUTS</th>
+            </tr>
+            <tr>
+              <th>VOLUME</th>
+              <th>IV</th>
+              <th>STRIKE</th>
+              <th>DIFF OF OI</th>
+              <th>IV</th>
+              <th>VOLUME</th>
+            </tr>
+          </thead>
+          <tbody id="ocBody"></tbody>
+        </table>
+      </div>
+    </main>
+
+    <script>
+      const FIELDS = [
+        { key: "ce_vol", type: "int", side: "ce" },
+        { key: "ce_iv", type: "dec", side: "ce" },
+        { key: "strike", type: "strike", side: "center" },
+        { key: "diff_oi", type: "int", side: "center", signed: true },
+        { key: "pe_iv", type: "dec", side: "pe" },
+        { key: "pe_vol", type: "int", side: "pe" },
+      ];
+
+      const intFmt = new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 });
+      const decFmt = new Intl.NumberFormat("en-IN", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+
+      const tbody = document.getElementById("ocBody");
+      const symbolSelect = document.getElementById("symbolSelect");
+      const customSymbol = document.getElementById("customSymbol");
+      const expirySelect = document.getElementById("expirySelect");
+      const strikesSelect = document.getElementById("strikesSelect");
+      const connStatus = document.getElementById("connStatus");
+      const rowCache = new Map();
+      let hasScrolledToAtm = false;
+
+      function formatVal(val, type, signed = false) {
+        if (val === null || val === undefined) return "-";
+        const num = Number(val);
+        const prefix = (signed && num > 0) ? "+" : "";
+        if (type === "int") return prefix + intFmt.format(Math.trunc(num));
+        return prefix + decFmt.format(num);
+      }
+
+      function syncExpiryDropdown(expiryDates, activeExpiry) {
+        const currentOpts = Array.from(expirySelect.options).map((o) => o.value);
+        if (
+          currentOpts.length !== expiryDates.length ||
+          currentOpts.some((v, i) => v !== expiryDates[i])
+        ) {
+          expirySelect.replaceChildren(
+            ...expiryDates.map((d) => {
+              const opt = document.createElement("option");
+              opt.value = d;
+              opt.textContent = d;
+              return opt;
+            })
+          );
+        }
+        if (activeExpiry) expirySelect.value = activeExpiry;
+      }
+
+      function renderSnapshot(snap) {
+        if (!snap || !snap.rows) return;
+
+        document.getElementById("spotVal").textContent =
+          snap.underlyingValue !== null ? decFmt.format(snap.underlyingValue) : "-";
+        document.getElementById("nseTimeVal").textContent = snap.timestamp || "-";
+        document.getElementById("ceOiVal").textContent = intFmt.format(snap.totalCeOi || 0);
+        document.getElementById("peOiVal").textContent = intFmt.format(snap.totalPeOi || 0);
+        document.getElementById("pcrVal").textContent =
+          snap.pcr !== null ? snap.pcr.toFixed(2) : "-";
+        document.getElementById("localSyncVal").textContent = new Date().toLocaleTimeString(
+          "en-IN",
+          { hour12: false }
+        );
+
+        if (Array.isArray(snap.expiryDates)) {
+          syncExpiryDropdown(snap.expiryDates, snap.expiry);
+        }
+
+        if (Array.from(symbolSelect.options).some((o) => o.value === snap.symbol)) {
+          symbolSelect.value = snap.symbol;
+        }
+        if (snap.strikeWindow !== undefined && snap.strikeWindow !== null) {
+          const sw = String(snap.strikeWindow);
+          if (Array.from(strikesSelect.options).some((o) => o.value === sw)) {
+            strikesSelect.value = sw;
+          }
+        }
+
+        const spot = snap.underlyingValue;
+        let atmStrike = snap.closestStrike ?? null;
+        if (atmStrike === null && spot !== null && snap.rows.length > 0) {
+          let bestDiff = Infinity;
+          for (const r of snap.rows) {
+            const diff = Math.abs(Number(r.strike) - Number(spot));
+            if (diff < bestDiff) {
+              bestDiff = diff;
+              atmStrike = Number(r.strike);
+            }
+          }
+        }
+
+        const activeKeys = new Set();
+        for (const row of snap.rows) {
+          const key = String(row.strike);
+          activeKeys.add(key);
+
+          let tr = rowCache.get(key);
+          if (!tr) {
+            tr = document.createElement("tr");
+            tr.dataset.strike = key;
+            for (const f of FIELDS) {
+              const cell = document.createElement(f.type === "strike" ? "th" : "td");
+              if (f.type === "strike") {
+                cell.scope = "row";
+                cell.className = "strike-cell";
+              } else if (f.key === "diff_oi") {
+                cell.className = "diff-oi-cell";
+              } else {
+                cell.className = f.side === "ce" ? "ce-side" : "pe-side";
+              }
+              tr.appendChild(cell);
+            }
+            tbody.appendChild(tr);
+            rowCache.set(key, tr);
+          }
+
+          const strikeNum = Number(row.strike);
+          const isAtm = atmStrike !== null && strikeNum === atmStrike;
+          tr.classList.toggle("atm-row", isAtm);
+          tr.classList.toggle("ce-itm", atmStrike !== null && strikeNum <= atmStrike);
+          tr.classList.toggle("pe-itm", atmStrike !== null && strikeNum > atmStrike);
+
+          const cells = tr.children;
+          for (let i = 0; i < FIELDS.length; i += 1) {
+            const f = FIELDS[i];
+            const cell = cells[i];
+            const rawVal = row[f.key];
+            const formatted = formatVal(rawVal, f.type, Boolean(f.signed));
+
+            if (f.signed) {
+              cell.classList.toggle("pos", rawVal !== null && Number(rawVal) > 0);
+              cell.classList.toggle("neg", rawVal !== null && Number(rawVal) < 0);
+            }
+
+            if (cell.textContent !== formatted) {
+              const prevNum = Number(cell.dataset.raw);
+              const nextNum = rawVal === null ? NaN : Number(rawVal);
+              if (
+                cell.dataset.raw !== undefined &&
+                !Number.isNaN(prevNum) &&
+                !Number.isNaN(nextNum) &&
+                prevNum !== nextNum &&
+                (f.key.endsWith("_ltp") || f.key.endsWith("_oi"))
+              ) {
+                const cls = nextNum > prevNum ? "flash-up" : "flash-down";
+                cell.classList.remove("flash-up", "flash-down");
+                void cell.offsetWidth;
+                cell.classList.add(cls);
+              }
+              cell.textContent = formatted;
+              cell.dataset.raw = rawVal === null ? "" : String(rawVal);
+            }
+          }
+        }
+
+        for (const [k, tr] of rowCache.entries()) {
+          if (!activeKeys.has(k)) {
+            tr.remove();
+            rowCache.delete(k);
+          }
+        }
+
+        if (!hasScrolledToAtm && atmStrike !== null) {
+          if (snap.rows.length > 15) {
+            jumpToAtm();
+          }
+          hasScrolledToAtm = true;
+        }
+      }
+
+      function jumpToAtm() {
+        const atmEl = tbody.querySelector("tr.atm-row");
+        if (atmEl) {
+          atmEl.scrollIntoView({ block: "center", behavior: "smooth" });
+        }
+      }
+
+      async function switchTarget(symbol, expiry = "", strikes = strikesSelect.value) {
+        hasScrolledToAtm = false;
+        rowCache.clear();
+        tbody.replaceChildren();
+        const params = new URLSearchParams({ symbol, strikes });
+        if (expiry) params.set("expiry", expiry);
+        const res = await fetch(`/api/snapshot?${params.toString()}`);
+        if (res.ok) {
+          const snap = await res.json();
+          renderSnapshot(snap);
+        }
+      }
+
+      symbolSelect.addEventListener("change", () => {
+        customSymbol.value = "";
+        switchTarget(symbolSelect.value, "", strikesSelect.value);
+      });
+
+      document.getElementById("loadCustomBtn").addEventListener("click", () => {
+        const sym = customSymbol.value.trim().toUpperCase();
+        if (sym) switchTarget(sym, "", strikesSelect.value);
+      });
+
+      customSymbol.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          const sym = customSymbol.value.trim().toUpperCase();
+          if (sym) switchTarget(sym, "", strikesSelect.value);
+        }
+      });
+
+      expirySelect.addEventListener("change", () => {
+        const sym = customSymbol.value.trim().toUpperCase() || symbolSelect.value;
+        switchTarget(sym, expirySelect.value, strikesSelect.value);
+      });
+
+      strikesSelect.addEventListener("change", () => {
+        const sym = customSymbol.value.trim().toUpperCase() || symbolSelect.value;
+        switchTarget(sym, expirySelect.value, strikesSelect.value);
+      });
+
+      document.getElementById("scrollAtmBtn").addEventListener("click", jumpToAtm);
+
+      if (window.location.protocol === "file:") {
+        connStatus.textContent = "Open http://127.0.0.1:3000";
+      } else {
+        const events = new EventSource("/events");
+        events.addEventListener("open", () => {
+          connStatus.textContent = "Connected";
+        });
+        events.addEventListener("snapshot", (e) => {
+          connStatus.textContent = "LIVE";
+          connStatus.classList.add("live");
+          connStatus.style.background = "";
+          renderSnapshot(JSON.parse(e.data));
+        });
+        events.addEventListener("error_status", (e) => {
+          try {
+            const data = JSON.parse(e.data);
+            if (data?.error) {
+              connStatus.textContent = "NSE Error: " + data.error.slice(0, 30);
+              connStatus.title = data.error;
+              connStatus.classList.remove("live");
+              connStatus.style.background = "#c62828";
+            }
+          } catch {}
+        });
+        events.addEventListener("error", () => {
+          connStatus.textContent = "Reconnecting...";
+          connStatus.classList.remove("live");
+          connStatus.style.background = "";
+        });
+      }
+    </script>
+  </body>
+</html>
