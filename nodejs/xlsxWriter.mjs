@@ -8,18 +8,20 @@ import path from "node:path";
 import zlib from "node:zlib";
 
 export const COLUMNS = [
+  { key: "ce_chng_oi", title: "CHNG IN OI", kind: "int" },
   { key: "ce_vol", title: "VOLUME", kind: "int" },
   { key: "ce_iv", title: "IV", kind: "dec" },
   { key: "strike", title: "STRIKE", kind: "strike" },
   { key: "diff_oi", title: "DIFF OF OI", kind: "int" },
   { key: "pe_iv", title: "IV", kind: "dec" },
   { key: "pe_vol", title: "VOLUME", kind: "int" },
+  { key: "pe_chng_oi", title: "CHNG IN OI", kind: "int" },
 ];
 
 const COL_WIDTHS = [
-  12, 8,
+  13, 12, 8,
   13, 14,
-  8, 12,
+  8, 12, 13,
 ];
 
 const CRC_TABLE = (() => {
@@ -218,17 +220,21 @@ function buildSheetXml(snapshot, updatedAt) {
     xmlNumCell(2, 8, snapshot.totalCeVol, 11),
     xmlStrCell(2, 9, "Total PE Vol", 2),
     xmlNumCell(2, 10, snapshot.totalPeVol, 11),
+    xmlStrCell(2, 11, "CE Chng OI", 2),
+    xmlNumCell(2, 12, snapshot.totalCeChngOi ?? 0, 11),
+    xmlStrCell(2, 13, "PE Chng OI", 2),
+    xmlNumCell(2, 14, snapshot.totalPeChngOi ?? 0, 11),
   ];
   rowsXml.push(`<row r="2" ht="20" customHeight="1">${r2.join("")}</row>`);
 
   const r4 = [];
-  for (let c = 1; c <= 2; c += 1) {
+  for (let c = 1; c <= 3; c += 1) {
     r4.push(xmlStrCell(4, c, c === 1 ? "CALLS" : "", 1));
   }
-  r4.push(xmlStrCell(4, 3, "STRIKE", 1));
-  r4.push(xmlStrCell(4, 4, "DIFF OF OI", 1));
-  for (let c = 5; c <= 6; c += 1) {
-    r4.push(xmlStrCell(4, c, c === 5 ? "PUTS" : "", 1));
+  r4.push(xmlStrCell(4, 4, "STRIKE & DIFF OF OI", 1));
+  r4.push(xmlStrCell(4, 5, "", 1));
+  for (let c = 6; c <= 8; c += 1) {
+    r4.push(xmlStrCell(4, c, c === 6 ? "PUTS" : "", 1));
   }
   rowsXml.push(`<row r="4" ht="22" customHeight="1">${r4.join("")}</row>`);
 
@@ -255,7 +261,7 @@ function buildSheetXml(snapshot, updatedAt) {
     const isPeItm = atmStrike !== null && strikeNum > atmStrike;
     const cells = COLUMNS.map((col, colIdx) => {
       const shaded =
-        (colIdx < 2 && isCeItm) || (colIdx > 3 && isPeItm) || (col.kind === "strike" && isAtm);
+        (colIdx < 3 && isCeItm) || (colIdx > 4 && isPeItm) || (col.kind === "strike" && isAtm);
       let style = 5;
       if (col.kind === "strike") style = shaded ? 8 : 3;
       else if (col.kind === "int") style = shaded ? 6 : 4;
@@ -279,9 +285,10 @@ function buildSheetXml(snapshot, updatedAt) {
   <sheetFormatPr defaultRowHeight="18"/>
   <cols>${colsXml}</cols>
   <sheetData>${rowsXml.join("")}</sheetData>
-  <mergeCells count="3">
-    <mergeCell ref="A4:B4"/>
-    <mergeCell ref="E4:F4"/>
+  <mergeCells count="4">
+    <mergeCell ref="A4:C4"/>
+    <mergeCell ref="D4:E4"/>
+    <mergeCell ref="F4:H4"/>
     <mergeCell ref="H1:I1"/>
   </mergeCells>
 </worksheet>`;
@@ -356,7 +363,7 @@ export function buildCsvString(snapshot) {
       .join(",")
   );
   const headers = COLUMNS.map((col, idx) =>
-    idx < 2 ? `CE_${col.title}` : idx === 2 ? "STRIKE" : idx === 3 ? col.title : `PE_${col.title}`
+    idx < 3 ? `CE_${col.title}` : idx === 3 ? "STRIKE" : idx === 4 ? col.title : `PE_${col.title}`
   );
   lines.push(headers.map(csvEscape).join(","));
   for (const row of snapshot.rows) {

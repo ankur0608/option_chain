@@ -111,6 +111,12 @@ export function parsePayload(symbol, expiry, payload, expiryDates, strikeWindow 
   const totalPeOi = Math.trunc(
     peTotals.totOI ?? rows.reduce((sum, r) => sum + (Number(r.pe_oi) || 0), 0)
   );
+  const totalCeChngOi = Math.trunc(
+    rows.reduce((sum, r) => sum + (Number(r.ce_chng_oi) || 0), 0)
+  );
+  const totalPeChngOi = Math.trunc(
+    rows.reduce((sum, r) => sum + (Number(r.pe_chng_oi) || 0), 0)
+  );
   const totalCeVol = Math.trunc(
     ceTotals.totVol ?? rows.reduce((sum, r) => sum + (Number(r.ce_vol) || 0), 0)
   );
@@ -148,6 +154,8 @@ export function parsePayload(symbol, expiry, payload, expiryDates, strikeWindow 
     strikeWindow,
     totalCeOi,
     totalPeOi,
+    totalCeChngOi,
+    totalPeChngOi,
     totalCeVol,
     totalPeVol,
     pcr,

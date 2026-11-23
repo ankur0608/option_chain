@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>NSE Option Chain — Live Excel &amp; Stream</title>
+    <title>NSE &amp; BSE Option Chain — Live Excel &amp; Stream</title>
     <style>
       :root {
         --bg: #f4f6fa;
@@ -177,12 +177,13 @@
         border-collapse: separate;
         border-spacing: 0;
         font-variant-numeric: tabular-nums;
-        --label-1: "CE Vol";
-        --label-2: "CE IV";
-        --label-3: "Strike";
-        --label-4: "Diff of OI";
+        --label-1: "CE Chng in OI";
+        --label-2: "CE Vol";
+        --label-3: "CE IV";
+        --label-4: "Strike & Diff OI";
         --label-5: "PE IV";
         --label-6: "PE Vol";
+        --label-7: "PE Chng in OI";
       }
 
       caption {
@@ -228,6 +229,66 @@
         color: var(--navy);
         font-weight: 700;
         text-align: center;
+        padding: 0.32rem 0.6rem;
+        vertical-align: middle;
+        white-space: nowrap;
+      }
+
+      .strike-wrap {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.45rem;
+        white-space: nowrap;
+      }
+
+      .strike-val {
+        font-weight: 700;
+        font-size: 0.84rem;
+        color: var(--navy);
+        letter-spacing: -0.01em;
+      }
+
+      .strike-diff-oi {
+        font-size: 0.72rem;
+        font-weight: 600;
+        padding: 0.1rem 0.35rem;
+        border-radius: 4px;
+        background: rgba(0, 0, 0, 0.04);
+        line-height: 1.2;
+        white-space: nowrap;
+      }
+
+      .strike-diff-oi.pos {
+        color: var(--green);
+        background: rgba(11, 122, 67, 0.12);
+      }
+
+      .strike-diff-oi.neg {
+        color: var(--red);
+        background: rgba(198, 40, 40, 0.12);
+      }
+
+      .strike-col-header-inner {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.45rem;
+        white-space: nowrap;
+      }
+
+      .strike-header-title {
+        font-weight: 700;
+      }
+
+      .strike-header-sub {
+        font-size: 0.68rem;
+        font-weight: 500;
+        opacity: 0.85;
+        letter-spacing: 0.03em;
+        background: rgba(255, 255, 255, 0.16);
+        padding: 0.1rem 0.35rem;
+        border-radius: 4px;
       }
 
       tbody td.diff-oi-cell {
@@ -302,7 +363,7 @@
         }
 
         tbody th.strike-cell::before {
-          content: var(--label-3) ": ";
+          content: var(--label-4) ": ";
         }
 
         td {
@@ -313,16 +374,17 @@
 
         td:nth-child(1)::before { content: var(--label-1) ": "; color: var(--muted); }
         td:nth-child(2)::before { content: var(--label-2) ": "; color: var(--muted); }
-        td:nth-child(4)::before { content: var(--label-4) ": "; color: var(--muted); }
-        td:nth-child(5)::before { content: var(--label-5) ": "; color: var(--muted); }
-        td:nth-child(6)::before { content: var(--label-6) ": "; color: var(--muted); }
+        td:nth-child(3)::before { content: var(--label-3) ": "; color: var(--muted); }
+        td:nth-child(4)::before { content: var(--label-5) ": "; color: var(--muted); }
+        td:nth-child(5)::before { content: var(--label-6) ": "; color: var(--muted); }
+        td:nth-child(6)::before { content: var(--label-7) ": "; color: var(--muted); }
       }
     </style>
   </head>
   <body>
     <header class="app-header">
       <div class="brand">
-        <span>NSE Option Chain</span>
+        <span>Option Chain (NSE &amp; BSE)</span>
         <span id="connStatus" class="status-pill">Connecting...</span>
       </div>
       <div class="controls">
@@ -334,6 +396,8 @@
             <option value="FINNIFTY">FINNIFTY</option>
             <option value="MIDCPNIFTY">MIDCPNIFTY</option>
             <option value="NIFTYNXT50">NIFTYNXT50</option>
+            <option value="SENSEX">SENSEX (BSE)</option>
+            <option value="BANKEX">BANKEX (BSE)</option>
           </select>
         </label>
         <label>
@@ -366,7 +430,7 @@
         <div id="spotVal" class="stat-value">-</div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">NSE Timestamp</div>
+        <div class="stat-label">Exchange Time</div>
         <div id="nseTimeVal" class="stat-value">-</div>
       </div>
       <div class="stat-card">
@@ -376,6 +440,14 @@
       <div class="stat-card">
         <div class="stat-label">Total PE OI</div>
         <div id="peOiVal" class="stat-value">-</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">CE Chng in OI</div>
+        <div id="ceChngOiVal" class="stat-value">-</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">PE Chng in OI</div>
+        <div id="peChngOiVal" class="stat-value">-</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">PCR (PE / CE)</div>
@@ -401,18 +473,23 @@
           </caption>
           <thead>
             <tr class="group-row">
-              <th colspan="2">CALLS</th>
-              <th>STRIKE</th>
-              <th>DIFF OF OI</th>
-              <th colspan="2">PUTS</th>
+              <th colspan="3">CALLS</th>
+              <th>STRIKE &amp; DIFF OF OI</th>
+              <th colspan="3">PUTS</th>
             </tr>
             <tr>
+              <th>CHNG IN OI</th>
               <th>VOLUME</th>
               <th>IV</th>
-              <th>STRIKE</th>
-              <th>DIFF OF OI</th>
+              <th>
+                <div class="strike-col-header-inner">
+                  <span class="strike-header-title">STRIKE</span>
+                  <span class="strike-header-sub">DIFF OF OI</span>
+                </div>
+              </th>
               <th>IV</th>
               <th>VOLUME</th>
+              <th>CHNG IN OI</th>
             </tr>
           </thead>
           <tbody id="ocBody"></tbody>
@@ -422,12 +499,13 @@
 
     <script>
       const FIELDS = [
+        { key: "ce_chng_oi", type: "int", side: "ce", signed: true },
         { key: "ce_vol", type: "int", side: "ce" },
         { key: "ce_iv", type: "dec", side: "ce" },
         { key: "strike", type: "strike", side: "center" },
-        { key: "diff_oi", type: "int", side: "center", signed: true },
         { key: "pe_iv", type: "dec", side: "pe" },
         { key: "pe_vol", type: "int", side: "pe" },
+        { key: "pe_chng_oi", type: "int", side: "pe", signed: true },
       ];
 
       const intFmt = new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 });
@@ -479,6 +557,20 @@
         document.getElementById("nseTimeVal").textContent = snap.timestamp || "-";
         document.getElementById("ceOiVal").textContent = intFmt.format(snap.totalCeOi || 0);
         document.getElementById("peOiVal").textContent = intFmt.format(snap.totalPeOi || 0);
+        const ceChngOiEl = document.getElementById("ceChngOiVal");
+        if (ceChngOiEl) {
+          const val = snap.totalCeChngOi ?? null;
+          ceChngOiEl.textContent = formatVal(val, "int", true);
+          ceChngOiEl.classList.toggle("pos", val !== null && Number(val) > 0);
+          ceChngOiEl.classList.toggle("neg", val !== null && Number(val) < 0);
+        }
+        const peChngOiEl = document.getElementById("peChngOiVal");
+        if (peChngOiEl) {
+          const val = snap.totalPeChngOi ?? null;
+          peChngOiEl.textContent = formatVal(val, "int", true);
+          peChngOiEl.classList.toggle("pos", val !== null && Number(val) > 0);
+          peChngOiEl.classList.toggle("neg", val !== null && Number(val) < 0);
+        }
         document.getElementById("pcrVal").textContent =
           snap.pcr !== null ? snap.pcr.toFixed(2) : "-";
         document.getElementById("localSyncVal").textContent = new Date().toLocaleTimeString(
@@ -548,6 +640,41 @@
           for (let i = 0; i < FIELDS.length; i += 1) {
             const f = FIELDS[i];
             const cell = cells[i];
+
+            if (f.type === "strike") {
+              const diffVal = row.diff_oi;
+              const formattedStrike = intFmt.format(Math.trunc(Number(row.strike)));
+              const formattedDiff = formatVal(diffVal, "int", true);
+              const diffCls =
+                diffVal !== null && Number(diffVal) > 0
+                  ? "pos"
+                  : diffVal !== null && Number(diffVal) < 0
+                    ? "neg"
+                    : "";
+              const strikeHtml = `<div class="strike-wrap"><span class="strike-val">${formattedStrike}</span><span class="strike-diff-oi ${diffCls}">${formattedDiff}</span></div>`;
+
+              if (cell.dataset.strikeVal !== formattedStrike || cell.dataset.diffVal !== formattedDiff) {
+                const prevDiff = Number(cell.dataset.diffRaw);
+                const nextDiff = diffVal === null ? NaN : Number(diffVal);
+                if (
+                  cell.dataset.diffRaw !== undefined &&
+                  !Number.isNaN(prevDiff) &&
+                  !Number.isNaN(nextDiff) &&
+                  prevDiff !== nextDiff
+                ) {
+                  const cls = nextDiff > prevDiff ? "flash-up" : "flash-down";
+                  cell.classList.remove("flash-up", "flash-down");
+                  void cell.offsetWidth;
+                  cell.classList.add(cls);
+                }
+                cell.innerHTML = strikeHtml;
+                cell.dataset.strikeVal = formattedStrike;
+                cell.dataset.diffVal = formattedDiff;
+                cell.dataset.diffRaw = diffVal === null ? "" : String(diffVal);
+              }
+              continue;
+            }
+
             const rawVal = row[f.key];
             const formatted = formatVal(rawVal, f.type, Boolean(f.signed));
 

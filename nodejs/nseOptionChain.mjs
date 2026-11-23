@@ -15,6 +15,7 @@ import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 
 import { NSEOptionChainClient } from "./nseClient.mjs";
+import { BSEOptionChainClient, BSE_SYMBOLS } from "./bseClient.mjs";
 import { buildCsvString, buildXlsxBuffer, writeCsv, writeXlsx } from "./xlsxWriter.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -50,11 +51,12 @@ function formatSummary(snapshot) {
         atm = row;
       }
     }
-    atmStr = `${atm.strike} (CE LTP: ${atm.ce_ltp ?? "-"}, PE LTP: ${atm.pe_ltp ?? "-"})`;
+    const diffSign = atm.diff_oi !== null && Number(atm.diff_oi) > 0 ? `+${atm.diff_oi}` : `${atm.diff_oi ?? "-"}`;
+    atmStr = `${atm.strike} [Diff OI: ${diffSign}] (CE LTP: ${atm.ce_ltp ?? "-"}, PE LTP: ${atm.pe_ltp ?? "-"})`;
   }
   const pcrStr = snapshot.pcr !== null ? snapshot.pcr.toFixed(2) : "-";
   const nowStr = new Date().toLocaleTimeString("en-IN", { hour12: false });
-  return `[${nowStr}] ${snapshot.symbol} (${snapshot.expiry}) | Spot: ${spot} | NSE Time: ${snapshot.timestamp} | ATM: ${atmStr} | PCR: ${pcrStr} | Rows: ${snapshot.rows.length}`;
+  return `[${nowStr}] ${snapshot.symbol} (${snapshot.expiry}) | Spot: ${spot} | Time: ${snapshot.timestamp} | ATM: ${atmStr} | PCR: ${pcrStr} | Rows: ${snapshot.rows.length}`;
 }
 
 async function main() {
@@ -86,7 +88,17 @@ async function main() {
   const port = Number.parseInt(values.port, 10) || 3000;
   const customOut = values.out ? path.resolve(values.out) : null;
 
-  const client = new NSEOptionChainClient();
+  const nseClient = new NSEOptionChainClient();
+  const bseClient = new BSEOptionChainClient();
+
+  function getClientForSymbol(sym) {
+    const s = sym.trim().toUpperCase();
+    if (BSE_SYMBOLS.has(s)) {
+      return bseClient;
+    }
+    return nseClient;
+  }
+
   const sseClients = new Set();
   let latestSnapshot = null;
   let lastError = null;
@@ -116,6 +128,7 @@ async function main() {
     if (refreshPromise) return refreshPromise;
     refreshPromise = (async () => {
       try {
+        const client = getClientForSymbol(activeSymbol);
         const snapshot = await client.fetchSnapshot(
           activeSymbol,
           activeExpiry,
@@ -250,7 +263,7 @@ async function main() {
   }
 
   console.log(
-    `Starting Node.js NSE Option Chain sync for ${activeSymbol} -> ${resolveOutPath(activeSymbol)}`
+    `Starting Node.js Option Chain sync for ${activeSymbol} -> ${resolveOutPath(activeSymbol)}`
   );
   console.log(`Refreshing every ${intervalMs / 1000}s. Press Ctrl+C to stop.`);
 
