@@ -4,6 +4,6 @@
   "description": "Real-time NSE Option Chain web dashboard and Excel exporter in pure Node.js",
   "type": "module",
   "scripts": {
-    "start": "node init && node --dns-result-order=ipv4first nodejs/nseOptionChain.mjs"
+    "start": "node --dns-result-order=ipv4first nodejs/nseOptionChain.mjs"
   }
 }
