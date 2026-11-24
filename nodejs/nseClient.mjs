@@ -7,6 +7,14 @@ import dns from "node:dns";
 if (typeof dns.setDefaultResultOrder === "function") {
   dns.setDefaultResultOrder("ipv4first");
 }
+import {
+  calculateDelta,
+  calculateGamma,
+  calculateTheta,
+  calculateVega,
+  parseExpiryToDays,
+  solveImpliedVolatility,
+} from "./greeks.mjs";
 
 const CANDIDATE_BASE_URLS = [
   "https://www.nseindia.in",
@@ -83,21 +91,60 @@ export function parsePayload(symbol, expiry, payload, expiryDates, strikeWindow 
         ? (peOi ?? 0) - (ceOi ?? 0)
         : null;
 
+    const daysToExpiry = parseExpiryToDays(expiry, timestamp);
+    const isNearExpiry = daysToExpiry <= 1.0;
+
+    let ceIv = num(ce, "impliedVolatility");
+    let peIv = num(pe, "impliedVolatility");
+    const ceLtp = num(ce, "lastPrice");
+    const peLtp = num(pe, "lastPrice");
+
+    // On expiry contracts or missing IV, solve real-time IV from Trade Price (LTP) matching NSE Greeks view
+    if (isNearExpiry || !ceIv || Number(ceIv) <= 0) {
+      if (ceLtp !== null && Number(ceLtp) > 0) {
+        const solved = solveImpliedVolatility("CE", underlyingValue, item.strikePrice, daysToExpiry, ceLtp, 0.07, timestamp, symbol);
+        if (solved !== null) ceIv = solved;
+      }
+    }
+    if (isNearExpiry || !peIv || Number(peIv) <= 0) {
+      if (peLtp !== null && Number(peLtp) > 0) {
+        const solved = solveImpliedVolatility("PE", underlyingValue, item.strikePrice, daysToExpiry, peLtp, 0.07, timestamp, symbol);
+        if (solved !== null) peIv = solved;
+      }
+    }
+
+    const ceDelta = calculateDelta("CE", underlyingValue, item.strikePrice, expiry, ceIv, 0.07, timestamp, ceLtp, symbol);
+    const peDelta = calculateDelta("PE", underlyingValue, item.strikePrice, expiry, peIv, 0.07, timestamp, peLtp, symbol);
+    const ceGamma = calculateGamma(underlyingValue, item.strikePrice, expiry, ceIv, 0.07, timestamp, ceLtp, "CE", symbol);
+    const peGamma = calculateGamma(underlyingValue, item.strikePrice, expiry, peIv, 0.07, timestamp, peLtp, "PE", symbol);
+    const ceTheta = calculateTheta("CE", underlyingValue, item.strikePrice, expiry, ceIv, 0.07, timestamp, ceLtp, symbol);
+    const peTheta = calculateTheta("PE", underlyingValue, item.strikePrice, expiry, peIv, 0.07, timestamp, peLtp, symbol);
+    const ceVega = calculateVega(underlyingValue, item.strikePrice, expiry, ceIv, 0.07, timestamp, ceLtp, "CE", symbol);
+    const peVega = calculateVega(underlyingValue, item.strikePrice, expiry, peIv, 0.07, timestamp, peLtp, "PE", symbol);
+
     rows.push({
+      ce_delta: ceDelta,
+      ce_gamma: ceGamma,
+      ce_theta: ceTheta,
+      ce_vega: ceVega,
       ce_oi: ceOi,
       ce_chng_oi: num(ce, "changeinOpenInterest"),
       ce_vol: num(ce, "totalTradedVolume"),
-      ce_iv: num(ce, "impliedVolatility"),
-      ce_ltp: num(ce, "lastPrice"),
+      ce_iv: ceIv,
+      ce_ltp: ceLtp,
       ce_chng: num(ce, "change"),
       strike: item.strikePrice,
       diff_oi: diffOi,
       pe_chng: num(pe, "change"),
-      pe_ltp: num(pe, "lastPrice"),
-      pe_iv: num(pe, "impliedVolatility"),
+      pe_ltp: peLtp,
+      pe_iv: peIv,
       pe_vol: num(pe, "totalTradedVolume"),
       pe_chng_oi: num(pe, "changeinOpenInterest"),
       pe_oi: peOi,
+      pe_theta: peTheta,
+      pe_vega: peVega,
+      pe_gamma: peGamma,
+      pe_delta: peDelta,
     });
   }
 

@@ -16,6 +16,7 @@ import { parseArgs } from "node:util";
 
 import { NSEOptionChainClient } from "./nseClient.mjs";
 import { BSEOptionChainClient, BSE_SYMBOLS } from "./bseClient.mjs";
+import { fetchCandles } from "./candles.mjs";
 import { buildCsvString, buildXlsxBuffer, writeCsv, writeXlsx } from "./xlsxWriter.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -210,6 +211,22 @@ async function main() {
           res.end(JSON.stringify(snap));
         } catch (err) {
           res.writeHead(502, { "Content-Type": "application/json; charset=utf-8" });
+          res.end(JSON.stringify({ error: err.message }));
+        }
+        return;
+      }
+
+      if (reqUrl.pathname === "/api/candles") {
+        const reqSym = reqUrl.searchParams.get("symbol")?.trim().toUpperCase() || activeSymbol;
+        const interval = reqUrl.searchParams.get("interval") || "1d";
+        const range = reqUrl.searchParams.get("range") || (interval === "1d" ? "1mo" : "5d");
+        const currentSpot = latestSnapshot?.symbol === reqSym ? latestSnapshot.underlyingValue : null;
+        try {
+          const candleData = await fetchCandles(reqSym, currentSpot, range, interval);
+          res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+          res.end(JSON.stringify(candleData));
+        } catch (err) {
+          res.writeHead(500, { "Content-Type": "application/json; charset=utf-8" });
           res.end(JSON.stringify({ error: err.message }));
         }
         return;

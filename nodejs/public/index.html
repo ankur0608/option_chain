@@ -122,6 +122,24 @@
         background: #15944f;
       }
 
+      .btn-chart {
+        background: #089981;
+        border-color: #089981;
+        color: #fff;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.15s ease;
+      }
+
+      .btn-chart:hover {
+        background: #067a67;
+      }
+
+      .btn-chart.active {
+        background: #c62828;
+        border-color: #c62828;
+      }
+
       .summary-bar {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -177,13 +195,17 @@
         border-collapse: separate;
         border-spacing: 0;
         font-variant-numeric: tabular-nums;
-        --label-1: "CE Chng in OI";
-        --label-2: "CE Vol";
-        --label-3: "CE IV";
-        --label-4: "Strike & Diff OI";
-        --label-5: "PE IV";
-        --label-6: "PE Vol";
-        --label-7: "PE Chng in OI";
+        --label-0: "CE Gamma";
+        --label-1: "CE Delta";
+        --label-2: "CE Chng in OI";
+        --label-3: "CE Vol";
+        --label-4: "CE IV";
+        --label-5: "Strike & Diff OI";
+        --label-6: "PE IV";
+        --label-7: "PE Vol";
+        --label-8: "PE Chng in OI";
+        --label-9: "PE Delta";
+        --label-10: "PE Gamma";
       }
 
       caption {
@@ -372,12 +394,336 @@
           text-align: right;
         }
 
-        td:nth-child(1)::before { content: var(--label-1) ": "; color: var(--muted); }
-        td:nth-child(2)::before { content: var(--label-2) ": "; color: var(--muted); }
-        td:nth-child(3)::before { content: var(--label-3) ": "; color: var(--muted); }
-        td:nth-child(4)::before { content: var(--label-5) ": "; color: var(--muted); }
-        td:nth-child(5)::before { content: var(--label-6) ": "; color: var(--muted); }
-        td:nth-child(6)::before { content: var(--label-7) ": "; color: var(--muted); }
+        td:nth-child(1)::before { content: var(--label-0) ": "; color: var(--muted); }
+        td:nth-child(2)::before { content: var(--label-1) ": "; color: var(--muted); }
+        td:nth-child(3)::before { content: var(--label-2) ": "; color: var(--muted); }
+        td:nth-child(4)::before { content: var(--label-3) ": "; color: var(--muted); }
+        td:nth-child(5)::before { content: var(--label-4) ": "; color: var(--muted); }
+        td:nth-child(6)::before { content: var(--label-6) ": "; color: var(--muted); }
+        td:nth-child(7)::before { content: var(--label-7) ": "; color: var(--muted); }
+        td:nth-child(8)::before { content: var(--label-8) ": "; color: var(--muted); }
+        td:nth-child(9)::before { content: var(--label-9) ": "; color: var(--muted); }
+        td:nth-child(10)::before { content: var(--label-10) ": "; color: var(--muted); }
+      }
+
+      /* Movable Floating Modal Window */
+      .chart-modal {
+        position: fixed;
+        top: 65px;
+        left: calc(50% - 520px);
+        width: 1040px;
+        height: 600px;
+        max-width: calc(100vw - 20px);
+        max-height: calc(100vh - 40px);
+        min-width: 460px;
+        min-height: 340px;
+        z-index: 99999;
+        background: #131722;
+        color: #d1d4dc;
+        border: 1px solid #363c4e;
+        border-radius: 10px;
+        box-shadow: 0 24px 60px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.08);
+        display: none;
+        flex-direction: column;
+        resize: both;
+        overflow: hidden;
+        user-select: none;
+      }
+
+      .chart-modal.maximized {
+        top: 8px !important;
+        left: 8px !important;
+        width: calc(100vw - 16px) !important;
+        height: calc(100vh - 16px) !important;
+        max-width: none !important;
+        max-height: none !important;
+        border-radius: 6px;
+        resize: none;
+      }
+
+      .tv-topbar {
+        height: 40px;
+        background: #1e222d;
+        border-bottom: 1px solid #2a2e39;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 0.65rem;
+        font-size: 0.78rem;
+        gap: 0.5rem;
+        cursor: grab;
+      }
+
+      .tv-topbar:active {
+        cursor: grabbing;
+      }
+
+      .drag-handle {
+        display: inline-flex;
+        align-items: center;
+        color: #787b86;
+        margin-right: 0.25rem;
+        font-size: 15px;
+        line-height: 1;
+        cursor: grab;
+        user-select: none;
+      }
+
+      .drag-handle:active {
+        cursor: grabbing;
+      }
+
+      .tv-topbar-left,
+      .tv-topbar-right {
+        display: flex;
+        align-items: center;
+        gap: 0.45rem;
+      }
+
+      .tv-sym-pill {
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+        font-weight: 700;
+        color: #ffffff;
+        background: #2a2e39;
+        padding: 0.2rem 0.55rem;
+        border-radius: 4px;
+        letter-spacing: 0.02em;
+      }
+
+      .tv-tf-btn {
+        background: transparent;
+        border: none;
+        color: #787b86;
+        padding: 0.2rem 0.45rem;
+        border-radius: 4px;
+        font-weight: 600;
+        font-size: 0.75rem;
+        cursor: pointer;
+      }
+
+      .tv-tf-btn:hover {
+        color: #d1d4dc;
+        background: #2a2e39;
+      }
+
+      .tv-tf-btn.active {
+        color: #2962ff;
+        background: rgba(41, 98, 255, 0.15);
+      }
+
+      .tv-divider {
+        width: 1px;
+        height: 18px;
+        background: #2a2e39;
+        margin: 0 0.15rem;
+      }
+
+      .tv-btn-icon {
+        background: transparent;
+        border: none;
+        color: #787b86;
+        padding: 0.25rem 0.45rem;
+        border-radius: 4px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        font-size: 0.8rem;
+      }
+
+      .tv-btn-icon:hover {
+        color: #d1d4dc;
+        background: #2a2e39;
+      }
+
+      .tv-oi-toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.2rem 0.55rem;
+        border-radius: 4px;
+        background: rgba(41, 98, 255, 0.12);
+        border: 1px solid rgba(41, 98, 255, 0.3);
+        color: #d1d4dc;
+        cursor: pointer;
+        font-size: 0.76rem;
+        font-weight: 600;
+      }
+
+      .tv-oi-toggle input[type="checkbox"] {
+        accent-color: #2962ff;
+        cursor: pointer;
+        margin: 0;
+      }
+
+      .badge-new {
+        background: #ffd600;
+        color: #000;
+        font-size: 0.65rem;
+        font-weight: 800;
+        padding: 0.08rem 0.35rem;
+        border-radius: 3px;
+        letter-spacing: 0.02em;
+        text-transform: uppercase;
+      }
+
+      /* TV Body: Sidebar + Main Area */
+      .tv-body {
+        display: flex;
+        position: relative;
+        flex: 1;
+        min-height: 0;
+        background: #131722;
+      }
+
+      .tv-sidebar {
+        width: 36px;
+        background: #181c27;
+        border-right: 1px solid #2a2e39;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 0.5rem 0;
+        gap: 0.6rem;
+      }
+
+      .tv-side-icon {
+        color: #787b86;
+        cursor: pointer;
+        font-size: 0.85rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 26px;
+        height: 26px;
+        border-radius: 4px;
+        transition: all 0.15s;
+      }
+
+      .tv-side-icon:hover {
+        color: #d1d4dc;
+        background: #2a2e39;
+      }
+
+      .tv-side-icon.active {
+        color: #2962ff;
+        background: rgba(41, 98, 255, 0.15);
+      }
+
+      /* TV Chart Canvas Container */
+      .tv-canvas-area {
+        flex: 1;
+        position: relative;
+        overflow: hidden;
+      }
+
+      #tvCanvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+        cursor: crosshair;
+      }
+
+      .tv-legend {
+        position: absolute;
+        top: 8px;
+        left: 12px;
+        z-index: 10;
+        pointer-events: none;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        font-size: 0.75rem;
+      }
+
+      .tv-legend-row {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.45rem;
+      }
+
+      .tv-leg-sym {
+        font-weight: 700;
+        color: #d1d4dc;
+      }
+
+      .tv-leg-ohlc {
+        color: #787b86;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .tv-leg-ohlc span {
+        color: #d1d4dc;
+        margin-right: 0.35rem;
+      }
+
+      .tv-leg-chg {
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .tv-leg-chg.up {
+        color: #089981;
+      }
+
+      .tv-leg-chg.down {
+        color: #f23645;
+      }
+
+      .tv-watermark {
+        position: absolute;
+        bottom: 40px;
+        left: 20px;
+        font-size: 2.2rem;
+        font-weight: 800;
+        color: rgba(255, 255, 255, 0.03);
+        pointer-events: none;
+        user-select: none;
+        letter-spacing: -0.02em;
+      }
+
+      .tv-tooltip {
+        position: absolute;
+        z-index: 20;
+        pointer-events: none;
+        background: rgba(24, 28, 39, 0.95);
+        border: 1px solid #363c4e;
+        border-radius: 6px;
+        padding: 0.45rem 0.65rem;
+        font-size: 0.72rem;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+        display: none;
+        color: #d1d4dc;
+        min-width: 145px;
+        transform: translate(12px, -50%);
+      }
+
+      .tv-tooltip-title {
+        font-weight: 700;
+        color: #fff;
+        margin-bottom: 0.3rem;
+        padding-bottom: 0.2rem;
+        border-bottom: 1px solid #2a2e39;
+      }
+
+      .tv-tooltip-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 0.75rem;
+        line-height: 1.4;
+      }
+
+      .tv-tooltip-ce {
+        color: #f23645;
+        font-weight: 600;
+      }
+
+      .tv-tooltip-pe {
+        color: #089981;
+        font-weight: 600;
       }
     </style>
   </head>
@@ -419,6 +765,8 @@
           </select>
         </label>
         <button id="scrollAtmBtn" type="button">Jump to ATM</button>
+        <button id="toggleGreeksBtn" type="button" style="background:#475569; border-color:#475569;">Show Theta &amp; Vega</button>
+        <button id="openChartBtn" type="button" class="btn-chart">📊 View Chart &amp; OI</button>
         <a class="btn-link btn-excel" href="/download.xlsx">Download Excel (.xlsx)</a>
         <a class="btn-link" href="/download.csv">Download CSV</a>
       </div>
@@ -460,6 +808,75 @@
     </section>
 
     <main class="main-panel">
+      <!-- Draggable Movable Floating Modal Window: TradingView Candlestick Chart with Live OI Profile -->
+      <section id="chartModal" class="chart-modal" role="dialog" aria-label="TradingView Candlestick Chart and OI Profile Modal">
+        <div class="tv-topbar" id="tvTopBar" title="Click and drag to move window">
+          <div class="tv-topbar-left">
+            <span class="drag-handle" title="Click and drag to move window">⠿</span>
+            <div class="tv-sym-pill">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+              <span id="tvSymbolText">NIFTY</span>
+            </div>
+            <div class="tv-divider"></div>
+            <button class="tv-tf-btn active" data-tf="1D">1D</button>
+            <button class="tv-tf-btn" data-tf="1H">1H</button>
+            <button class="tv-tf-btn" data-tf="15m">15m</button>
+            <button class="tv-tf-btn" data-tf="5m">5m</button>
+            <div class="tv-divider"></div>
+            <span class="tv-btn-icon" title="Candlesticks">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M7 2v3H5v10h2v7h2v-7h2V5H9V2H7zm10 4v3h-2v6h2v7h2v-7h2V9h-2V6h-2z"/></svg>
+            </span>
+            <span class="tv-btn-icon" title="Indicators">fx</span>
+            <div class="tv-divider"></div>
+            <label class="tv-oi-toggle" title="Toggle horizontal Open Interest bars on price scale">
+              <input type="checkbox" id="oiProfileCheck" checked />
+              <span>OI Profile</span>
+              <span class="badge-new">New</span>
+            </label>
+          </div>
+          <div class="tv-topbar-right">
+            <button id="tvResetZoomBtn" class="tv-btn-icon" title="Reset Chart Zoom">↺ Fit</button>
+            <button id="tvMaximizeBtn" class="tv-btn-icon" title="Maximize / Restore Window">🗖</button>
+            <button id="tvCloseModalBtn" class="tv-btn-icon" title="Close Modal (Esc)" style="color:#f23645; font-size:1.15rem; font-weight:700; margin-left:0.35rem;">✕</button>
+          </div>
+        </div>
+
+        <div class="tv-body">
+          <!-- Left TradingView toolbar -->
+          <div class="tv-sidebar">
+            <div class="tv-side-icon active" title="Crosshair">✛</div>
+            <div class="tv-side-icon" title="Trendline">╱</div>
+            <div class="tv-side-icon" title="Fib Retracement">⫵</div>
+            <div class="tv-side-icon" title="Brush">🖌</div>
+            <div class="tv-side-icon" title="Text">T</div>
+            <div class="tv-side-icon" title="Icons">☺</div>
+            <div class="tv-side-icon" title="Ruler">📏</div>
+            <div class="tv-side-icon" title="Zoom In">🔍</div>
+            <div class="tv-side-icon" title="Remove drawings">🗑</div>
+          </div>
+
+          <!-- Canvas Drawing Area -->
+          <div id="tvCanvasArea" class="tv-canvas-area">
+            <div class="tv-legend">
+              <div class="tv-legend-row">
+                <span id="tvLegHeader" class="tv-leg-sym">NIFTY · 1D · NSE</span>
+                <span style="color:#089981; font-size:9px;">●</span>
+                <span id="tvLegOhlc" class="tv-leg-ohlc">O - H - L - C -</span>
+                <span id="tvLegChg" class="tv-leg-chg">-</span>
+              </div>
+              <div class="tv-legend-row" style="color:#787b86;">
+                <span>Volume <strong id="tvLegVol" style="color:#d1d4dc;">0</strong></span>
+                <span style="margin-left:0.5rem; color:#f23645;">■ Call OI (Resistance)</span>
+                <span style="color:#089981;">■ Put OI (Support)</span>
+              </div>
+            </div>
+            <div id="tvWatermark" class="tv-watermark">NIFTY</div>
+            <canvas id="tvCanvas"></canvas>
+            <div id="tvTooltip" class="tv-tooltip"></div>
+          </div>
+        </div>
+      </section>
+
       <div
         id="tableWrapper"
         tabindex="0"
@@ -472,12 +889,14 @@
             Live NSE Option Chain Calls and Puts by Strike Price
           </caption>
           <thead>
-            <tr class="group-row">
-              <th colspan="3">CALLS</th>
+            <tr id="groupHeaderRow" class="group-row">
+              <th id="callsGroupTh" colspan="5">CALLS</th>
               <th>STRIKE &amp; DIFF OF OI</th>
-              <th colspan="3">PUTS</th>
+              <th id="putsGroupTh" colspan="5">PUTS</th>
             </tr>
-            <tr>
+            <tr id="subHeaderRow">
+              <th>GAMMA</th>
+              <th>DELTA</th>
               <th>CHNG IN OI</th>
               <th>VOLUME</th>
               <th>IV</th>
@@ -490,6 +909,8 @@
               <th>IV</th>
               <th>VOLUME</th>
               <th>CHNG IN OI</th>
+              <th>DELTA</th>
+              <th>GAMMA</th>
             </tr>
           </thead>
           <tbody id="ocBody"></tbody>
@@ -498,7 +919,11 @@
     </main>
 
     <script>
-      const FIELDS = [
+      let showGreeksExtended = false;
+
+      const STANDARD_FIELDS = [
+        { key: "ce_gamma", type: "dec5", side: "ce", signed: false },
+        { key: "ce_delta", type: "dec4", side: "ce", signed: false },
         { key: "ce_chng_oi", type: "int", side: "ce", signed: true },
         { key: "ce_vol", type: "int", side: "ce" },
         { key: "ce_iv", type: "dec", side: "ce" },
@@ -506,12 +931,42 @@
         { key: "pe_iv", type: "dec", side: "pe" },
         { key: "pe_vol", type: "int", side: "pe" },
         { key: "pe_chng_oi", type: "int", side: "pe", signed: true },
+        { key: "pe_delta", type: "dec4", side: "pe", signed: true },
+        { key: "pe_gamma", type: "dec5", side: "pe", signed: false },
       ];
+
+      const EXTENDED_FIELDS = [
+        { key: "ce_vega", type: "dec", side: "ce", signed: false },
+        { key: "ce_theta", type: "dec", side: "ce", signed: true },
+        { key: "ce_gamma", type: "dec5", side: "ce", signed: false },
+        { key: "ce_delta", type: "dec4", side: "ce", signed: false },
+        { key: "ce_chng_oi", type: "int", side: "ce", signed: true },
+        { key: "ce_vol", type: "int", side: "ce" },
+        { key: "ce_iv", type: "dec", side: "ce" },
+        { key: "strike", type: "strike", side: "center" },
+        { key: "pe_iv", type: "dec", side: "pe" },
+        { key: "pe_vol", type: "int", side: "pe" },
+        { key: "pe_chng_oi", type: "int", side: "pe", signed: true },
+        { key: "pe_delta", type: "dec4", side: "pe", signed: true },
+        { key: "pe_gamma", type: "dec5", side: "pe", signed: false },
+        { key: "pe_theta", type: "dec", side: "pe", signed: true },
+        { key: "pe_vega", type: "dec", side: "pe", signed: false },
+      ];
+
+      let FIELDS = STANDARD_FIELDS;
 
       const intFmt = new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 });
       const decFmt = new Intl.NumberFormat("en-IN", {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
+      });
+      const dec4Fmt = new Intl.NumberFormat("en-IN", {
+        minimumFractionDigits: 4,
+        maximumFractionDigits: 4,
+      });
+      const dec5Fmt = new Intl.NumberFormat("en-IN", {
+        minimumFractionDigits: 5,
+        maximumFractionDigits: 5,
       });
 
       const tbody = document.getElementById("ocBody");
@@ -522,12 +977,83 @@
       const connStatus = document.getElementById("connStatus");
       const rowCache = new Map();
       let hasScrolledToAtm = false;
+      let latestSnapshotData = null;
+
+      const toggleGreeksBtn = document.getElementById("toggleGreeksBtn");
+      if (toggleGreeksBtn) {
+        toggleGreeksBtn.addEventListener("click", () => {
+          showGreeksExtended = !showGreeksExtended;
+          FIELDS = showGreeksExtended ? EXTENDED_FIELDS : STANDARD_FIELDS;
+          toggleGreeksBtn.textContent = showGreeksExtended ? "Hide Theta & Vega" : "Show Theta & Vega";
+          toggleGreeksBtn.style.background = showGreeksExtended ? "#1e293b" : "#475569";
+
+          const callsGroupTh = document.getElementById("callsGroupTh");
+          const putsGroupTh = document.getElementById("putsGroupTh");
+          const subHeaderRow = document.getElementById("subHeaderRow");
+
+          if (showGreeksExtended) {
+            callsGroupTh.colSpan = 7;
+            putsGroupTh.colSpan = 7;
+            subHeaderRow.innerHTML = `
+              <th>VEGA</th>
+              <th>THETA</th>
+              <th>GAMMA</th>
+              <th>DELTA</th>
+              <th>CHNG IN OI</th>
+              <th>VOLUME</th>
+              <th>IV</th>
+              <th>
+                <div class="strike-col-header-inner">
+                  <span class="strike-header-title">STRIKE</span>
+                  <span class="strike-header-sub">DIFF OF OI</span>
+                </div>
+              </th>
+              <th>IV</th>
+              <th>VOLUME</th>
+              <th>CHNG IN OI</th>
+              <th>DELTA</th>
+              <th>GAMMA</th>
+              <th>THETA</th>
+              <th>VEGA</th>
+            `;
+          } else {
+            callsGroupTh.colSpan = 5;
+            putsGroupTh.colSpan = 5;
+            subHeaderRow.innerHTML = `
+              <th>GAMMA</th>
+              <th>DELTA</th>
+              <th>CHNG IN OI</th>
+              <th>VOLUME</th>
+              <th>IV</th>
+              <th>
+                <div class="strike-col-header-inner">
+                  <span class="strike-header-title">STRIKE</span>
+                  <span class="strike-header-sub">DIFF OF OI</span>
+                </div>
+              </th>
+              <th>IV</th>
+              <th>VOLUME</th>
+              <th>CHNG IN OI</th>
+              <th>DELTA</th>
+              <th>GAMMA</th>
+            `;
+          }
+
+          rowCache.clear();
+          tbody.replaceChildren();
+          if (latestSnapshotData) {
+            renderSnapshot(latestSnapshotData);
+          }
+        });
+      }
 
       function formatVal(val, type, signed = false) {
         if (val === null || val === undefined) return "-";
         const num = Number(val);
-        const prefix = (signed && num > 0) ? "+" : "";
+        const prefix = signed && num > 0 ? "+" : "";
         if (type === "int") return prefix + intFmt.format(Math.trunc(num));
+        if (type === "dec4") return prefix + dec4Fmt.format(num);
+        if (type === "dec5") return prefix + dec5Fmt.format(num);
         return prefix + decFmt.format(num);
       }
 
@@ -551,6 +1077,7 @@
 
       function renderSnapshot(snap) {
         if (!snap || !snap.rows) return;
+        latestSnapshotData = snap;
 
         document.getElementById("spotVal").textContent =
           snap.underlyingValue !== null ? decFmt.format(snap.underlyingValue) : "-";
@@ -767,6 +1294,766 @@
       });
 
       document.getElementById("scrollAtmBtn").addEventListener("click", jumpToAtm);
+
+      /* ====================================================================
+       * Draggable Floating Modal Window Controller
+       * ==================================================================== */
+      const openChartBtn = document.getElementById("openChartBtn");
+      const chartModal = document.getElementById("chartModal");
+      const tvTopBar = document.getElementById("tvTopBar");
+      const tvCloseModalBtn = document.getElementById("tvCloseModalBtn");
+      const tvMaximizeBtn = document.getElementById("tvMaximizeBtn");
+
+      let isModalOpen = false;
+      let isMaximized = false;
+      let preMaxStyle = null;
+
+      function openChartModal() {
+        isModalOpen = true;
+        chartModal.style.display = "flex";
+        if (openChartBtn) {
+          openChartBtn.classList.add("active");
+          openChartBtn.innerHTML = `✕ Close Chart`;
+        }
+
+        // Center modal on screen if it hasn't been moved by the user yet
+        if (!chartModal.dataset.moved) {
+          const modalW = Math.min(window.innerWidth - 24, 1040);
+          const modalH = Math.min(window.innerHeight - 80, 600);
+          chartModal.style.left = `${Math.max(12, Math.round((window.innerWidth - modalW) / 2))}px`;
+          chartModal.style.top = `${Math.max(50, Math.round((window.innerHeight - modalH) / 2))}px`;
+          chartModal.style.width = `${modalW}px`;
+          chartModal.style.height = `${modalH}px`;
+        }
+
+        resizeTvChart();
+        if (tvState.candles.length === 0) {
+          loadCandlesForSymbol(tvState.symbol);
+        } else {
+          drawTvChart();
+        }
+      }
+
+      function closeChartModal() {
+        isModalOpen = false;
+        chartModal.style.display = "none";
+        if (openChartBtn) {
+          openChartBtn.classList.remove("active");
+          openChartBtn.innerHTML = `📊 View Chart &amp; OI`;
+        }
+      }
+
+      function toggleChartModal() {
+        if (isModalOpen) closeChartModal();
+        else openChartModal();
+      }
+
+      if (openChartBtn) openChartBtn.addEventListener("click", toggleChartModal);
+      if (tvCloseModalBtn) tvCloseModalBtn.addEventListener("click", closeChartModal);
+
+      // Maximize & Restore
+      if (tvMaximizeBtn) {
+        tvMaximizeBtn.addEventListener("click", () => {
+          if (!isMaximized) {
+            preMaxStyle = {
+              left: chartModal.style.left,
+              top: chartModal.style.top,
+              width: chartModal.style.width,
+              height: chartModal.style.height,
+            };
+            chartModal.classList.add("maximized");
+            tvMaximizeBtn.textContent = "🗗";
+            tvMaximizeBtn.title = "Restore Window";
+            isMaximized = true;
+          } else {
+            chartModal.classList.remove("maximized");
+            if (preMaxStyle) {
+              chartModal.style.left = preMaxStyle.left;
+              chartModal.style.top = preMaxStyle.top;
+              chartModal.style.width = preMaxStyle.width;
+              chartModal.style.height = preMaxStyle.height;
+            }
+            tvMaximizeBtn.textContent = "🗖";
+            tvMaximizeBtn.title = "Maximize Window";
+            isMaximized = false;
+          }
+          setTimeout(() => {
+            resizeTvChart();
+            drawTvChart();
+          }, 60);
+        });
+      }
+
+      // Drag and Move Window via Header Bar
+      let isDraggingModal = false;
+      let dragMouseStartX = 0;
+      let dragMouseStartY = 0;
+      let modalStartLeft = 0;
+      let modalStartTop = 0;
+
+      tvTopBar.addEventListener("mousedown", (e) => {
+        if (
+          e.target.closest("button") ||
+          e.target.closest("input") ||
+          e.target.closest("label") ||
+          e.target.closest("select")
+        ) {
+          return;
+        }
+        if (chartModal.classList.contains("maximized")) return;
+
+        isDraggingModal = true;
+        chartModal.dataset.moved = "true";
+        dragMouseStartX = e.clientX;
+        dragMouseStartY = e.clientY;
+        modalStartLeft = chartModal.offsetLeft;
+        modalStartTop = chartModal.offsetTop;
+        tvTopBar.style.cursor = "grabbing";
+        document.body.style.userSelect = "none";
+      });
+
+      window.addEventListener("mousemove", (e) => {
+        if (!isDraggingModal) return;
+        const dx = e.clientX - dragMouseStartX;
+        const dy = e.clientY - dragMouseStartY;
+
+        const maxLeft = Math.max(0, window.innerWidth - chartModal.offsetWidth);
+        const maxTop = Math.max(0, window.innerHeight - 50);
+
+        const newLeft = Math.max(0, Math.min(maxLeft, modalStartLeft + dx));
+        const newTop = Math.max(0, Math.min(maxTop, modalStartTop + dy));
+
+        chartModal.style.left = `${newLeft}px`;
+        chartModal.style.top = `${newTop}px`;
+      });
+
+      window.addEventListener("mouseup", () => {
+        if (isDraggingModal) {
+          isDraggingModal = false;
+          tvTopBar.style.cursor = "grab";
+          document.body.style.userSelect = "";
+        }
+      });
+
+      // Close modal on Escape
+      window.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && isModalOpen) {
+          closeChartModal();
+        }
+      });
+
+      // ResizeObserver to automatically redraw when user resizes the window
+      const modalResizeObserver = new ResizeObserver(() => {
+        if (isModalOpen) {
+          resizeTvChart();
+          drawTvChart();
+        }
+      });
+      modalResizeObserver.observe(chartModal);
+
+      /* ====================================================================
+       * TradingView Candlestick Chart Engine with Live OI Profile Overlay
+       * ==================================================================== */
+      const tvCanvas = document.getElementById("tvCanvas");
+      const tvCtx = tvCanvas.getContext("2d");
+      const tvCanvasArea = document.getElementById("tvCanvasArea");
+      const tvSymbolText = document.getElementById("tvSymbolText");
+      const tvLegHeader = document.getElementById("tvLegHeader");
+      const tvLegOhlc = document.getElementById("tvLegOhlc");
+      const tvLegChg = document.getElementById("tvLegChg");
+      const tvLegVol = document.getElementById("tvLegVol");
+      const tvWatermark = document.getElementById("tvWatermark");
+      const tvTooltip = document.getElementById("tvTooltip");
+      const oiProfileCheck = document.getElementById("oiProfileCheck");
+      const tvResetZoomBtn = document.getElementById("tvResetZoomBtn");
+      const tvFullscreenBtn = document.getElementById("tvFullscreenBtn");
+
+      const PRICE_SCALE_W = 78;
+      const TIME_SCALE_H = 26;
+
+      const tvState = {
+        symbol: "NIFTY",
+        exchange: "NSE",
+        timeframe: "1D",
+        candles: [],
+        oiRows: [],
+        currentSpot: null,
+        showOiProfile: true,
+        candleWidth: 14,
+        candleGap: 4,
+        scrollOffset: 0, // 0 = anchored to rightmost (latest)
+        isDragging: false,
+        dragStartX: 0,
+        dragStartOffset: 0,
+        mouse: { x: -1, y: -1, active: false },
+        minPrice: 0,
+        maxPrice: 0,
+        plotW: 0,
+        plotH: 0,
+        dpr: window.devicePixelRatio || 1,
+      };
+
+      function priceToY(p) {
+        if (tvState.maxPrice <= tvState.minPrice) return tvState.plotH / 2;
+        return tvState.plotH - ((p - tvState.minPrice) / (tvState.maxPrice - tvState.minPrice)) * tvState.plotH;
+      }
+
+      function yToPrice(y) {
+        if (tvState.plotH <= 0) return 0;
+        return tvState.minPrice + ((tvState.plotH - y) / tvState.plotH) * (tvState.maxPrice - tvState.minPrice);
+      }
+
+      function resizeTvChart() {
+        if (!tvCanvasArea) return;
+        const rect = tvCanvasArea.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0) return;
+        tvState.dpr = window.devicePixelRatio || 1;
+        tvCanvas.width = Math.round(rect.width * tvState.dpr);
+        tvCanvas.height = Math.round(rect.height * tvState.dpr);
+        tvState.plotW = rect.width - PRICE_SCALE_W;
+        tvState.plotH = rect.height - TIME_SCALE_H;
+      }
+
+      window.addEventListener("resize", () => {
+        resizeTvChart();
+        drawTvChart();
+      });
+
+      function updateTvLegend(candle = null, prevCandle = null) {
+        const c = candle || (tvState.candles.length > 0 ? tvState.candles[tvState.candles.length - 1] : null);
+        if (!c) return;
+
+        const prevClose = prevCandle ? prevCandle.close : c.open;
+        const chg = c.close - prevClose;
+        const pctChg = prevClose !== 0 ? (chg / prevClose) * 100 : 0;
+        const sign = chg >= 0 ? "+" : "";
+
+        tvLegHeader.textContent = `${tvState.symbol} · ${tvState.timeframe} · ${tvState.exchange}`;
+        tvLegOhlc.innerHTML = `O <span>${decFmt.format(c.open)}</span> H <span>${decFmt.format(c.high)}</span> L <span>${decFmt.format(c.low)}</span> C <span>${decFmt.format(c.close)}</span>`;
+        tvLegChg.textContent = `${sign}${decFmt.format(chg)} (${sign}${pctChg.toFixed(2)}%)`;
+        tvLegChg.className = `tv-leg-chg ${chg >= 0 ? "up" : "down"}`;
+        tvLegVol.textContent = intFmt.format(c.volume || 0);
+      }
+
+      function drawTvChart() {
+        if (!tvCtx || tvState.plotW <= 0 || tvState.plotH <= 0) return;
+        const ctx = tvCtx;
+        const dpr = tvState.dpr;
+
+        ctx.save();
+        ctx.scale(dpr, dpr);
+
+        const W = tvCanvas.width / dpr;
+        const H = tvCanvas.height / dpr;
+        const plotW = tvState.plotW;
+        const plotH = tvState.plotH;
+
+        // Background
+        ctx.fillStyle = "#131722";
+        ctx.fillRect(0, 0, W, H);
+
+        if (tvState.candles.length === 0) {
+          ctx.fillStyle = "#787b86";
+          ctx.font = "14px sans-serif";
+          ctx.textAlign = "center";
+          ctx.fillText("Loading candlestick and OI profile data...", plotW / 2, plotH / 2);
+          ctx.restore();
+          return;
+        }
+
+        const step = tvState.candleWidth + tvState.candleGap;
+        const visibleCandleCount = Math.ceil(plotW / step) + 2;
+
+        const totalCandles = tvState.candles.length;
+        const endIndex = Math.max(1, totalCandles - tvState.scrollOffset);
+        const startIndex = Math.max(0, endIndex - visibleCandleCount);
+        const visibleCandles = tvState.candles.slice(startIndex, endIndex);
+
+        if (visibleCandles.length === 0) {
+          ctx.restore();
+          return;
+        }
+
+        // Determine price min & max
+        let minP = Infinity;
+        let maxP = -Infinity;
+        for (const c of visibleCandles) {
+          if (c.low < minP) minP = c.low;
+          if (c.high > maxP) maxP = c.high;
+        }
+        if (tvState.currentSpot) {
+          if (tvState.currentSpot < minP) minP = tvState.currentSpot;
+          if (tvState.currentSpot > maxP) maxP = tvState.currentSpot;
+        }
+
+        // Also factor in strike range if OI profile is visible
+        if (tvState.showOiProfile && tvState.oiRows && tvState.oiRows.length > 0) {
+          const strikes = tvState.oiRows.map((r) => Number(r.strike)).filter((s) => !Number.isNaN(s));
+          if (strikes.length > 0) {
+            const minStrike = Math.min(...strikes);
+            const maxStrike = Math.max(...strikes);
+            // Blend nicely so strikes don't squash candles too much
+            minP = Math.min(minP, minStrike);
+            maxP = Math.max(maxP, maxStrike);
+          }
+        }
+
+        const margin = Math.max(20, (maxP - minP) * 0.05);
+        tvState.minPrice = minP - margin;
+        tvState.maxPrice = maxP + margin;
+
+        // Horizontal Grid lines & Price axis marks
+        const priceRange = tvState.maxPrice - tvState.minPrice;
+        let gridStep = 50;
+        if (priceRange > 4000) gridStep = 500;
+        else if (priceRange > 2000) gridStep = 200;
+        else if (priceRange > 1000) gridStep = 100;
+        else if (priceRange < 300) gridStep = 20;
+
+        const firstGrid = Math.ceil(tvState.minPrice / gridStep) * gridStep;
+        ctx.strokeStyle = "rgba(42, 46, 57, 0.45)";
+        ctx.lineWidth = 1;
+        ctx.fillStyle = "#787b86";
+        ctx.font = "11px -apple-system, BlinkMacSystemFont, Roboto, sans-serif";
+        ctx.textAlign = "left";
+        ctx.textBaseline = "middle";
+
+        for (let p = firstGrid; p <= tvState.maxPrice; p += gridStep) {
+          const y = Math.round(priceToY(p)) + 0.5;
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(plotW, y);
+          ctx.stroke();
+
+          // Price label on right axis
+          ctx.fillText(decFmt.format(p), plotW + 8, y);
+        }
+
+        // Vertical Grid lines & Time axis marks
+        ctx.textAlign = "center";
+        ctx.textBaseline = "top";
+        const rightEdgeX = plotW - (tvState.candleGap + tvState.candleWidth / 2);
+
+        for (let i = 0; i < visibleCandles.length; i += 1) {
+          const c = visibleCandles[i];
+          const globalIdx = startIndex + i;
+          const distFromEnd = endIndex - 1 - globalIdx;
+          const cx = Math.round(rightEdgeX - distFromEnd * step) + 0.5;
+
+          // Mark date every ~6-8 candles
+          if ((globalIdx % 6 === 0 || i === visibleCandles.length - 1) && cx > 30 && cx < plotW - 20) {
+            ctx.beginPath();
+            ctx.moveTo(cx, 0);
+            ctx.lineTo(cx, plotH);
+            ctx.stroke();
+
+            const dateLabel = c.time ? c.time.slice(5) : "";
+            ctx.fillText(dateLabel, cx, plotH + 7);
+          }
+        }
+
+        // Axes borders
+        ctx.strokeStyle = "#2a2e39";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(plotW + 0.5, 0);
+        ctx.lineTo(plotW + 0.5, H);
+        ctx.moveTo(0, plotH + 0.5);
+        ctx.lineTo(W, plotH + 0.5);
+        ctx.stroke();
+
+        // ================================================================
+        // 1. Candlesticks
+        // ================================================================
+        const halfW = Math.max(1, Math.floor(tvState.candleWidth / 2));
+        for (let i = 0; i < visibleCandles.length; i += 1) {
+          const c = visibleCandles[i];
+          const globalIdx = startIndex + i;
+          const distFromEnd = endIndex - 1 - globalIdx;
+          const cx = Math.round(rightEdgeX - distFromEnd * step);
+
+          const openY = priceToY(c.open);
+          const closeY = priceToY(c.close);
+          const highY = priceToY(c.high);
+          const lowY = priceToY(c.low);
+
+          const isBullish = c.close >= c.open;
+          const candleColor = isBullish ? "#089981" : "#f23645";
+
+          // Wick
+          ctx.strokeStyle = candleColor;
+          ctx.lineWidth = 1.2;
+          ctx.beginPath();
+          ctx.moveTo(cx + 0.5, highY);
+          ctx.lineTo(cx + 0.5, lowY);
+          ctx.stroke();
+
+          // Body
+          ctx.fillStyle = candleColor;
+          const topY = Math.min(openY, closeY);
+          const bodyH = Math.max(1.5, Math.abs(closeY - openY));
+          ctx.fillRect(cx - halfW, topY, tvState.candleWidth, bodyH);
+        }
+
+        // ================================================================
+        // 2. OI Profile Overlay (Horizontal dual bars extending left from right axis)
+        // ================================================================
+        if (tvState.showOiProfile && tvState.oiRows && tvState.oiRows.length > 0) {
+          let maxOi = 0;
+          for (const r of tvState.oiRows) {
+            const ce = Number(r.ce_oi || 0);
+            const pe = Number(r.pe_oi || 0);
+            if (ce > maxOi) maxOi = ce;
+            if (pe > maxOi) maxOi = pe;
+          }
+
+          if (maxOi > 0) {
+            const maxBarWidth = plotW * 0.36; // Bars occupy up to 36% from right edge
+
+            // Determine bar height
+            let avgStrikeDiffY = 16;
+            if (tvState.oiRows.length >= 2) {
+              const s1 = Number(tvState.oiRows[0].strike);
+              const s2 = Number(tvState.oiRows[1].strike);
+              avgStrikeDiffY = Math.abs(priceToY(s1) - priceToY(s2));
+            }
+            const barHalfH = Math.max(3, Math.min(8, Math.floor(avgStrikeDiffY * 0.42)));
+
+            for (const row of tvState.oiRows) {
+              const strike = Number(row.strike);
+              if (strike < tvState.minPrice || strike > tvState.maxPrice) continue;
+              const strikeY = Math.round(priceToY(strike));
+
+              const ceOi = Number(row.ce_oi || 0);
+              const peOi = Number(row.pe_oi || 0);
+              const ceBarW = Math.round((ceOi / maxOi) * maxBarWidth);
+              const peBarW = Math.round((peOi / maxOi) * maxBarWidth);
+
+              // 1. Call OI (Resistance - Red Bar): sits on top half of strike line
+              if (ceBarW > 0) {
+                ctx.fillStyle = "rgba(242, 54, 69, 0.88)"; // Red Resistance
+                ctx.fillRect(plotW - ceBarW, strikeY - barHalfH, ceBarW, barHalfH);
+              }
+
+              // 2. Put OI (Support - Green Bar): sits on bottom half of strike line
+              if (peBarW > 0) {
+                ctx.fillStyle = "rgba(8, 153, 129, 0.88)"; // Green Support
+                ctx.fillRect(plotW - peBarW, strikeY, peBarW, barHalfH);
+              }
+
+              // Subtle horizontal tick at strike
+              ctx.strokeStyle = "rgba(255, 255, 255, 0.16)";
+              ctx.lineWidth = 1;
+              ctx.beginPath();
+              ctx.moveTo(plotW - 5, strikeY + 0.5);
+              ctx.lineTo(plotW, strikeY + 0.5);
+              ctx.stroke();
+            }
+          }
+        }
+
+        // ================================================================
+        // 3. Current Spot Market Price Line & Right Badge
+        // ================================================================
+        if (tvState.currentSpot) {
+          const spotY = Math.round(priceToY(tvState.currentSpot)) + 0.5;
+          if (spotY >= 0 && spotY <= plotH) {
+            // Horizontal dashed line across chart
+            ctx.strokeStyle = "#f23645";
+            ctx.lineWidth = 1;
+            ctx.setLineDash([4, 4]);
+            ctx.beginPath();
+            ctx.moveTo(0, spotY);
+            ctx.lineTo(plotW, spotY);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Badge on right price axis
+            ctx.fillStyle = "#f23645";
+            ctx.fillRect(plotW, spotY - 10, PRICE_SCALE_W, 20);
+            ctx.fillStyle = "#ffffff";
+            ctx.font = "bold 11px sans-serif";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(decFmt.format(tvState.currentSpot), plotW + PRICE_SCALE_W / 2, spotY);
+          }
+        }
+
+        // ================================================================
+        // 4. Interactive Crosshair & Tooltip
+        // ================================================================
+        if (tvState.mouse.active && tvState.mouse.x >= 0 && tvState.mouse.x <= plotW && tvState.mouse.y >= 0 && tvState.mouse.y <= plotH) {
+          const mx = Math.round(tvState.mouse.x) + 0.5;
+          const my = Math.round(tvState.mouse.y) + 0.5;
+
+          // Crosshair lines
+          ctx.strokeStyle = "rgba(120, 123, 134, 0.65)";
+          ctx.lineWidth = 1;
+          ctx.setLineDash([3, 3]);
+          ctx.beginPath();
+          ctx.moveTo(0, my);
+          ctx.lineTo(plotW, my);
+          ctx.moveTo(mx, 0);
+          ctx.lineTo(mx, plotH);
+          ctx.stroke();
+          ctx.setLineDash([]);
+
+          // Hover price tag on right scale
+          const hoverPrice = yToPrice(tvState.mouse.y);
+          ctx.fillStyle = "#363c4e";
+          ctx.fillRect(plotW, my - 10, PRICE_SCALE_W, 20);
+          ctx.fillStyle = "#ffffff";
+          ctx.font = "11px sans-serif";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(decFmt.format(hoverPrice), plotW + PRICE_SCALE_W / 2, my);
+
+          // Find closest candle to hover X
+          const relIdxFromRight = Math.round((rightEdgeX - tvState.mouse.x) / step);
+          const hoveredGlobalIdx = endIndex - 1 - relIdxFromRight;
+          if (hoveredGlobalIdx >= 0 && hoveredGlobalIdx < totalCandles) {
+            const hCandle = tvState.candles[hoveredGlobalIdx];
+            const pCandle = hoveredGlobalIdx > 0 ? tvState.candles[hoveredGlobalIdx - 1] : null;
+            updateTvLegend(hCandle, pCandle);
+
+            // Time badge on bottom scale
+            ctx.fillStyle = "#363c4e";
+            ctx.fillRect(mx - 38, plotH, 76, 22);
+            ctx.fillStyle = "#ffffff";
+            ctx.font = "11px sans-serif";
+            ctx.fillText(hCandle.time || "", mx, plotH + 11);
+          }
+
+          // OI Profile Strike Hover Inspection
+          let matchedStrikeRow = null;
+          if (tvState.showOiProfile && tvState.oiRows && tvState.mouse.x > plotW * 0.55) {
+            let bestDist = Infinity;
+            for (const r of tvState.oiRows) {
+              const sy = priceToY(Number(r.strike));
+              const dist = Math.abs(sy - tvState.mouse.y);
+              if (dist < bestDist) {
+                bestDist = dist;
+                matchedStrikeRow = r;
+              }
+            }
+            if (bestDist > 16) matchedStrikeRow = null;
+          }
+
+          if (matchedStrikeRow) {
+            const s = Number(matchedStrikeRow.strike);
+            const sy = Math.round(priceToY(s)) + 0.5;
+
+            // Highlight strike line
+            ctx.strokeStyle = "#ffd600";
+            ctx.lineWidth = 1.2;
+            ctx.setLineDash([2, 2]);
+            ctx.beginPath();
+            ctx.moveTo(plotW * 0.6, sy);
+            ctx.lineTo(plotW, sy);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Tooltip presentation
+            const ce = Number(matchedStrikeRow.ce_oi || 0);
+            const pe = Number(matchedStrikeRow.pe_oi || 0);
+            const diff = pe - ce;
+            const pcr = ce > 0 ? (pe / ce).toFixed(2) : "-";
+            const diffSign = diff > 0 ? "+" : "";
+
+            tvTooltip.style.display = "block";
+            tvTooltip.style.left = `${Math.min(plotW - 160, tvState.mouse.x)}px`;
+            tvTooltip.style.top = `${tvState.mouse.y}px`;
+            tvTooltip.innerHTML = `
+              <div class="tv-tooltip-title">Strike ${intFmt.format(s)}</div>
+              <div class="tv-tooltip-row">
+                <span>Call OI (Resistance):</span>
+                <span class="tv-tooltip-ce">${intFmt.format(ce)}</span>
+              </div>
+              <div class="tv-tooltip-row">
+                <span>Put OI (Support):</span>
+                <span class="tv-tooltip-pe">${intFmt.format(pe)}</span>
+              </div>
+              <div class="tv-tooltip-row">
+                <span>Diff of OI (PE - CE):</span>
+                <strong style="color:${diff >= 0 ? "#089981" : "#f23645"}">${diffSign}${intFmt.format(diff)}</strong>
+              </div>
+              <div class="tv-tooltip-row">
+                <span>Strike PCR:</span>
+                <strong style="color:#ffd600">${pcr}</strong>
+              </div>
+            `;
+          } else {
+            tvTooltip.style.display = "none";
+          }
+        } else {
+          tvTooltip.style.display = "none";
+        }
+
+        ctx.restore();
+      }
+
+      /* ====================================================================
+       * Chart Interaction Events: Pan, Zoom, Hover, Toggle
+       * ==================================================================== */
+      tvCanvas.addEventListener("mousemove", (e) => {
+        const rect = tvCanvas.getBoundingClientRect();
+        tvState.mouse.x = e.clientX - rect.left;
+        tvState.mouse.y = e.clientY - rect.top;
+        tvState.mouse.active = true;
+
+        if (tvState.isDragging) {
+          const dx = tvState.mouse.x - tvState.dragStartX;
+          const step = tvState.candleWidth + tvState.candleGap;
+          const candleDelta = Math.round(dx / step);
+          tvState.scrollOffset = Math.max(0, tvState.dragStartOffset + candleDelta);
+        }
+
+        drawTvChart();
+      });
+
+      tvCanvas.addEventListener("mouseleave", () => {
+        tvState.mouse.active = false;
+        tvState.isDragging = false;
+        tvTooltip.style.display = "none";
+        updateTvLegend();
+        drawTvChart();
+      });
+
+      tvCanvas.addEventListener("mousedown", (e) => {
+        if (e.button === 0) {
+          tvState.isDragging = true;
+          tvState.dragStartX = tvState.mouse.x;
+          tvState.dragStartOffset = tvState.scrollOffset;
+        }
+      });
+
+      window.addEventListener("mouseup", () => {
+        tvState.isDragging = false;
+      });
+
+      tvCanvas.addEventListener(
+        "wheel",
+        (e) => {
+          e.preventDefault();
+          const zoomIn = e.deltaY < 0;
+          const delta = zoomIn ? 1.5 : -1.5;
+          tvState.candleWidth = Math.max(4, Math.min(36, tvState.candleWidth + delta));
+          drawTvChart();
+        },
+        { passive: false }
+      );
+
+      oiProfileCheck.addEventListener("change", () => {
+        tvState.showOiProfile = oiProfileCheck.checked;
+        drawTvChart();
+      });
+
+      tvResetZoomBtn.addEventListener("click", () => {
+        tvState.scrollOffset = 0;
+        tvState.candleWidth = 14;
+        drawTvChart();
+      });
+
+      if (tvFullscreenBtn) {
+        tvFullscreenBtn.addEventListener("click", () => {
+          if (!document.fullscreenElement) {
+            chartModal.requestFullscreen().catch(() => {});
+          } else {
+            document.exitFullscreen().catch(() => {});
+          }
+        });
+      }
+
+      document.addEventListener("fullscreenchange", () => {
+        setTimeout(() => {
+          resizeTvChart();
+          drawTvChart();
+        }, 100);
+      });
+
+      // Timeframe buttons
+      document.querySelectorAll(".tv-tf-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          document.querySelectorAll(".tv-tf-btn").forEach((b) => b.classList.remove("active"));
+          btn.classList.add("active");
+          tvState.timeframe = btn.dataset.tf || "1D";
+          loadCandlesForSymbol(tvState.symbol);
+        });
+      });
+
+      /* ====================================================================
+       * Candles & Live Snapshot Sync
+       * ==================================================================== */
+      async function loadCandlesForSymbol(symbol) {
+        tvState.symbol = symbol;
+        tvSymbolText.textContent = symbol;
+        tvWatermark.textContent = symbol;
+
+        let interval = "1d";
+        let range = "1mo";
+        if (tvState.timeframe === "1H") {
+          interval = "1h";
+          range = "5d";
+        } else if (tvState.timeframe === "15m") {
+          interval = "15m";
+          range = "5d";
+        } else if (tvState.timeframe === "5m") {
+          interval = "5m";
+          range = "1d";
+        }
+
+        try {
+          const res = await fetch(
+            `/api/candles?symbol=${encodeURIComponent(symbol)}&interval=${interval}&range=${range}`
+          );
+          if (res.ok) {
+            const data = await res.json();
+            if (Array.isArray(data.candles)) {
+              tvState.candles = data.candles;
+              tvState.exchange = data.exchange || "NSE";
+              if (tvState.currentSpot) {
+                updateLatestCandle(tvState.currentSpot);
+              }
+              updateTvLegend();
+              resizeTvChart();
+              drawTvChart();
+            }
+          }
+        } catch (err) {
+          console.warn("Failed to load candles:", err);
+        }
+      }
+
+      function updateLatestCandle(spot) {
+        if (!spot || tvState.candles.length === 0) return;
+        const last = tvState.candles[tvState.candles.length - 1];
+        last.close = spot;
+        last.high = Math.max(last.high, spot);
+        last.low = Math.min(last.low, spot);
+      }
+
+      // Hook snapshot handler to update chart & OI profile live
+      const originalRenderSnapshot = renderSnapshot;
+      renderSnapshot = function (snap) {
+        originalRenderSnapshot(snap);
+
+        if (snap) {
+          tvState.currentSpot = snap.underlyingValue;
+          tvState.oiRows = snap.rows || [];
+
+          if (snap.symbol && snap.symbol !== tvState.symbol) {
+            tvState.symbol = snap.symbol;
+            if (isModalOpen) {
+              loadCandlesForSymbol(snap.symbol);
+            } else {
+              tvState.candles = []; // Invalidate so next time chart is opened, it loads fresh
+            }
+          } else if (isModalOpen) {
+            updateLatestCandle(snap.underlyingValue);
+            drawTvChart();
+          }
+        }
+      };
 
       if (window.location.protocol === "file:") {
         connStatus.textContent = "Open http://127.0.0.1:3000";

@@ -8,6 +8,8 @@ import path from "node:path";
 import zlib from "node:zlib";
 
 export const COLUMNS = [
+  { key: "ce_gamma", title: "GAMMA", kind: "dec5" },
+  { key: "ce_delta", title: "DELTA", kind: "dec4" },
   { key: "ce_chng_oi", title: "CHNG IN OI", kind: "int" },
   { key: "ce_vol", title: "VOLUME", kind: "int" },
   { key: "ce_iv", title: "IV", kind: "dec" },
@@ -16,12 +18,14 @@ export const COLUMNS = [
   { key: "pe_iv", title: "IV", kind: "dec" },
   { key: "pe_vol", title: "VOLUME", kind: "int" },
   { key: "pe_chng_oi", title: "CHNG IN OI", kind: "int" },
+  { key: "pe_delta", title: "DELTA", kind: "dec4" },
+  { key: "pe_gamma", title: "GAMMA", kind: "dec5" },
 ];
 
 const COL_WIDTHS = [
-  13, 12, 8,
+  9, 10, 13, 12, 8,
   13, 14,
-  8, 12, 13,
+  8, 12, 13, 10, 9,
 ];
 
 const CRC_TABLE = (() => {
@@ -146,10 +150,11 @@ function xmlNumCell(row, col, value, style) {
 function buildStylesXml() {
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
-  <numFmts count="3">
+  <numFmts count="4">
     <numFmt numFmtId="164" formatCode="#,##0"/>
     <numFmt numFmtId="165" formatCode="#,##0.00"/>
-    <numFmt numFmtId="166" formatCode="0.00"/>
+    <numFmt numFmtId="166" formatCode="0.0000"/>
+    <numFmt numFmtId="167" formatCode="0.00000"/>
   </numFmts>
   <fonts count="3">
     <font><sz val="11"/><name val="Calibri"/></font>
@@ -175,7 +180,7 @@ function buildStylesXml() {
   <cellStyleXfs count="1">
     <xf numFmtId="0" fontId="0" fillId="0" borderId="0"/>
   </cellStyleXfs>
-  <cellXfs count="12">
+  <cellXfs count="16">
     <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
     <xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
     <xf numFmtId="0" fontId="2" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf>
@@ -188,6 +193,10 @@ function buildStylesXml() {
     <xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf>
     <xf numFmtId="165" fontId="2" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf>
     <xf numFmtId="164" fontId="2" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf>
+    <xf numFmtId="166" fontId="2" fillId="4" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf>
+    <xf numFmtId="166" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf>
+    <xf numFmtId="167" fontId="2" fillId="4" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf>
+    <xf numFmtId="167" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf>
   </cellXfs>
 </styleSheet>`;
 }
@@ -228,13 +237,13 @@ function buildSheetXml(snapshot, updatedAt) {
   rowsXml.push(`<row r="2" ht="20" customHeight="1">${r2.join("")}</row>`);
 
   const r4 = [];
-  for (let c = 1; c <= 3; c += 1) {
+  for (let c = 1; c <= 5; c += 1) {
     r4.push(xmlStrCell(4, c, c === 1 ? "CALLS" : "", 1));
   }
-  r4.push(xmlStrCell(4, 4, "STRIKE & DIFF OF OI", 1));
-  r4.push(xmlStrCell(4, 5, "", 1));
-  for (let c = 6; c <= 8; c += 1) {
-    r4.push(xmlStrCell(4, c, c === 6 ? "PUTS" : "", 1));
+  r4.push(xmlStrCell(4, 6, "STRIKE & DIFF OF OI", 1));
+  r4.push(xmlStrCell(4, 7, "", 1));
+  for (let c = 8; c <= 12; c += 1) {
+    r4.push(xmlStrCell(4, c, c === 8 ? "PUTS" : "", 1));
   }
   rowsXml.push(`<row r="4" ht="22" customHeight="1">${r4.join("")}</row>`);
 
@@ -261,10 +270,12 @@ function buildSheetXml(snapshot, updatedAt) {
     const isPeItm = atmStrike !== null && strikeNum > atmStrike;
     const cells = COLUMNS.map((col, colIdx) => {
       const shaded =
-        (colIdx < 3 && isCeItm) || (colIdx > 4 && isPeItm) || (col.kind === "strike" && isAtm);
+        (colIdx < 5 && isCeItm) || (colIdx > 6 && isPeItm) || (col.kind === "strike" && isAtm);
       let style = 5;
       if (col.kind === "strike") style = shaded ? 8 : 3;
       else if (col.kind === "int") style = shaded ? 6 : 4;
+      else if (col.kind === "dec4") style = shaded ? 12 : 13;
+      else if (col.kind === "dec5") style = shaded ? 14 : 15;
       else style = shaded ? 7 : 5;
       return xmlNumCell(excelRow, colIdx + 1, rowData[col.key], style);
     });
@@ -286,9 +297,9 @@ function buildSheetXml(snapshot, updatedAt) {
   <cols>${colsXml}</cols>
   <sheetData>${rowsXml.join("")}</sheetData>
   <mergeCells count="4">
-    <mergeCell ref="A4:C4"/>
-    <mergeCell ref="D4:E4"/>
-    <mergeCell ref="F4:H4"/>
+    <mergeCell ref="A4:E4"/>
+    <mergeCell ref="F4:G4"/>
+    <mergeCell ref="H4:L4"/>
     <mergeCell ref="H1:I1"/>
   </mergeCells>
 </worksheet>`;
@@ -363,7 +374,7 @@ export function buildCsvString(snapshot) {
       .join(",")
   );
   const headers = COLUMNS.map((col, idx) =>
-    idx < 3 ? `CE_${col.title}` : idx === 3 ? "STRIKE" : idx === 4 ? col.title : `PE_${col.title}`
+    idx < 5 ? `CE_${col.title}` : (idx === 5 || idx === 6) ? col.title : `PE_${col.title}`
   );
   lines.push(headers.map(csvEscape).join(","));
   for (const row of snapshot.rows) {

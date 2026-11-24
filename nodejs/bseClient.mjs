@@ -7,6 +7,14 @@ import dns from "node:dns";
 if (typeof dns.setDefaultResultOrder === "function") {
   dns.setDefaultResultOrder("ipv4first");
 }
+import {
+  calculateDelta,
+  calculateGamma,
+  calculateTheta,
+  calculateVega,
+  parseExpiryToDays,
+  solveImpliedVolatility,
+} from "./greeks.mjs";
 
 export const BSE_SYMBOLS = new Set(["SENSEX", "BANKEX"]);
 
@@ -14,13 +22,13 @@ const BSE_METADATA = {
   SENSEX: {
     scripCode: 1,
     strikeStep: 100,
-    defaultSpot: 78500,
+    defaultSpot: 82435.99,
     yahooTicker: "^BSESN",
   },
   BANKEX: {
     scripCode: 12,
     strikeStep: 100,
-    defaultSpot: 58000,
+    defaultSpot: 70410.81,
     yahooTicker: "BSE-BANK.BO",
   },
 };
@@ -40,21 +48,21 @@ const DEFAULT_HEADERS = {
 };
 
 /**
- * Calculates upcoming Friday expiry dates for BSE derivatives.
+ * Calculates upcoming Thursday expiry dates for BSE derivatives (SENSEX & BANKEX).
  */
 export function getUpcomingBseExpiries(startDate = new Date(), count = 8) {
   const expiries = [];
   const d = new Date(startDate);
   d.setHours(15, 30, 0, 0);
 
-  // Find next Friday (day 5)
+  // Find next Thursday (day 4) - BSE weekly derivatives expire on Thursday
   const day = d.getDay();
-  let daysUntilFriday = (5 - day + 7) % 7;
-  // If today is Friday after 15:30 IST, roll to next Friday
-  if (daysUntilFriday === 0 && d.getHours() >= 16) {
-    daysUntilFriday = 7;
+  let daysUntilThursday = (4 - day + 7) % 7;
+  // If today is Thursday after 15:30 IST, roll to next Thursday
+  if (daysUntilThursday === 0 && (d.getHours() > 15 || (d.getHours() === 15 && d.getMinutes() >= 30))) {
+    daysUntilThursday = 7;
   }
-  d.setDate(d.getDate() + daysUntilFriday);
+  d.setDate(d.getDate() + daysUntilThursday);
 
   for (let i = 0; i < count; i += 1) {
     const dayStr = String(d.getDate()).padStart(2, "0");
@@ -66,51 +74,30 @@ export function getUpcomingBseExpiries(startDate = new Date(), count = 8) {
   return expiries;
 }
 
-/**
- * Cumulative normal distribution approximation for Black-Scholes.
- */
-function cnd(x) {
-  const a1 = 0.31938153;
-  const a2 = -0.356563782;
-  const a3 = 1.781477937;
-  const a4 = -1.821255978;
-  const a5 = 1.330274429;
-  const L = Math.abs(x);
-  const K = 1.0 / (1.0 + 0.2316419 * L);
-  let w =
-    1.0 -
-    (1.0 / Math.sqrt(2 * Math.PI)) *
-      Math.exp((-L * L) / 2) *
-      (a1 * K +
-        a2 * Math.pow(K, 2) +
-        a3 * Math.pow(K, 3) +
-        a4 * Math.pow(K, 4) +
-        a5 * Math.pow(K, 5));
-  if (x < 0) w = 1.0 - w;
-  return w;
-}
-
-/**
- * Basic Black-Scholes pricing for synthetic Greeks/LTP when raw exchange feed is missing Greeks.
- */
-function blackScholes(type, spot, strike, timeYears, r = 0.065, vol = 0.13) {
-  if (timeYears <= 0) timeYears = 0.001;
-  const d1 =
-    (Math.log(spot / strike) + (r + (vol * vol) / 2) * timeYears) /
-    (vol * Math.sqrt(timeYears));
-  const d2 = d1 - vol * Math.sqrt(timeYears);
-
-  if (type === "CE") {
-    return spot * cnd(d1) - strike * Math.exp(-r * timeYears) * cnd(d2);
-  }
-  return strike * Math.exp(-r * timeYears) * cnd(-d2) - spot * cnd(-d1);
-}
-
 function num(val) {
-  if (val === undefined || val === null || val === "" || Number.isNaN(Number(val))) {
+  if (val === undefined || val === null || val === "") {
     return null;
   }
-  return Number(val);
+  const cleaned = typeof val === "string" ? val.replace(/,/g, "").trim() : val;
+  if (cleaned === "" || Number.isNaN(Number(cleaned))) {
+    return null;
+  }
+  return Number(cleaned);
+}
+
+/**
+ * Helper to parse BSE date format like '26 Nov 2026' into '26-Nov-2026'.
+ */
+function normalizeBseDate(str) {
+  if (!str || typeof str !== "string") return null;
+  const parts = str.trim().split(/[\s-]+/);
+  if (parts.length === 3) {
+    const day = parts[0].padStart(2, "0");
+    const month = parts[1].slice(0, 3);
+    const year = parts[2];
+    return `${day}-${month}-${year}`;
+  }
+  return str;
 }
 
 export class BSEOptionChainClient {
@@ -169,7 +156,7 @@ export class BSEOptionChainClient {
   }
 
   async fetchRawBseChain(expiry, scripCode) {
-    const expiryFormatted = expiry.replace(/-/g, " ");
+    const expiryFormatted = expiry ? expiry.replace(/-/g, " ") : "";
     const url = `https://api.bseindia.com/BseIndiaAPI/api/DerivOptionChain_IV/w?Expiry=${encodeURIComponent(expiryFormatted)}&scrip_cd=${scripCode}&strprice=0`;
 
     try {
@@ -179,75 +166,105 @@ export class BSEOptionChainClient {
       });
       if (!res.ok) return null;
       const json = await res.json();
+      if (json?.Table && json.Table.length > 0) {
+        return json;
+      }
+
+      // If specific expiry returned empty table, fallback to fetching all expiries and filtering
+      if (expiryFormatted) {
+        const fallbackUrl = `https://api.bseindia.com/BseIndiaAPI/api/DerivOptionChain_IV/w?Expiry=&scrip_cd=${scripCode}&strprice=0`;
+        const fbRes = await fetch(fallbackUrl, {
+          headers: DEFAULT_HEADERS,
+          signal: AbortSignal.timeout(this.timeoutMs),
+        });
+        if (fbRes.ok) {
+          const fbJson = await fbRes.json();
+          if (Array.isArray(fbJson?.Table) && fbJson.Table.length > 0) {
+            const filteredTable = fbJson.Table.filter(
+              (r) => r.End_TimeStamp && r.End_TimeStamp.trim() === expiryFormatted
+            );
+            if (filteredTable.length > 0) {
+              return {
+                ...fbJson,
+                Table: filteredTable,
+                AllTable: fbJson.Table,
+              };
+            }
+            return fbJson;
+          }
+        }
+      }
+
       return json;
     } catch {
       return null;
     }
   }
 
-  generateSyntheticRows(spot, atmStrike, step, expiryDate) {
+  generateSyntheticRows(spot, atmStrike, step, expiryDate, symbol = "SENSEX", timestamp = "") {
     const strikesCount = 30; // 15 strikes each side
     const startStrike = atmStrike - Math.floor(strikesCount / 2) * step;
-    const now = new Date();
-    const expiryDateObj = new Date(expiryDate);
-    const diffDays = Math.max(1, Math.round((expiryDateObj - now) / (1000 * 60 * 60 * 24)));
-    const timeYears = diffDays / 365.0;
+    const daysToExpiry = parseExpiryToDays(expiryDate, timestamp);
+    const timeYears = Math.max(0.001, daysToExpiry / 365.0);
 
     const rows = [];
     for (let i = 0; i < strikesCount; i += 1) {
       const strike = startStrike + i * step;
       const diffFromAtm = Math.abs(strike - atmStrike) / step;
 
-      // Base volatility around 12% - 15% with slight volatility smile
-      const iv = Number((12.5 + Math.pow(diffFromAtm, 1.4) * 0.28).toFixed(2));
-      const volDec = iv / 100.0;
-
-      const ceLtpRaw = blackScholes("CE", spot, strike, timeYears, 0.065, volDec);
-      const peLtpRaw = blackScholes("PE", spot, strike, timeYears, 0.065, volDec);
-      const ceLtp = Number(Math.max(0.05, ceLtpRaw).toFixed(2));
-      const peLtp = Number(Math.max(0.05, peLtpRaw).toFixed(2));
-
-      // Realistic Open Interest curve peaking around ATM and near OTM strikes
+      // Deterministic calculation based on strike (no Math.random() jitter)
+      const iv = Number((14.0 + Math.pow(diffFromAtm, 1.3) * 0.25).toFixed(2));
       const oiFactor = Math.exp(-Math.pow(diffFromAtm, 1.8) / 30);
-      const ceOi = Math.round((30000 + Math.random() * 15000) * oiFactor);
-      const peOi = Math.round((28000 + Math.random() * 14000) * oiFactor);
-
-      // Change in OI
-      const ceChngOi = Math.round((Math.random() * 4000 - 1500) * oiFactor);
-      const peChngOi = Math.round((Math.random() * 4000 - 1500) * oiFactor);
-
-      // Volume correlated with OI and proximity to ATM
-      const ceVol = Math.round(ceOi * (1.2 + Math.random() * 0.8));
-      const peVol = Math.round(peOi * (1.1 + Math.random() * 0.8));
-
-      // Price Change
-      const ceChng = Number(((Math.random() * 40 - 20) * (strike <= spot ? 1 : 0.6)).toFixed(2));
-      const peChng = Number(((Math.random() * 40 - 20) * (strike >= spot ? 1 : 0.6)).toFixed(2));
-
+      const ceOi = Math.round(35000 * oiFactor);
+      const peOi = Math.round(32000 * oiFactor);
+      const ceChngOi = Math.round(1500 * oiFactor * (strike <= spot ? 1 : -0.5));
+      const peChngOi = Math.round(1500 * oiFactor * (strike >= spot ? 1 : -0.5));
+      const ceVol = Math.round(ceOi * 1.5);
+      const peVol = Math.round(peOi * 1.3);
       const diffOi = peOi - ceOi;
 
+      const ceLtp = Math.max(0.05, Number((Math.max(0, spot - strike) + spot * 0.005 * oiFactor).toFixed(2)));
+      const peLtp = Math.max(0.05, Number((Math.max(0, strike - spot) + spot * 0.005 * oiFactor).toFixed(2)));
+
+      const ceDelta = calculateDelta("CE", spot, strike, expiryDate, iv, 0.07, timestamp, ceLtp, symbol);
+      const peDelta = calculateDelta("PE", spot, strike, expiryDate, iv, 0.07, timestamp, peLtp, symbol);
+      const ceGamma = calculateGamma(spot, strike, expiryDate, iv, 0.07, timestamp, ceLtp, "CE", symbol);
+      const peGamma = calculateGamma(spot, strike, expiryDate, iv, 0.07, timestamp, peLtp, "PE", symbol);
+      const ceTheta = calculateTheta("CE", spot, strike, expiryDate, iv, 0.07, timestamp, ceLtp, symbol);
+      const peTheta = calculateTheta("PE", spot, strike, expiryDate, iv, 0.07, timestamp, peLtp, symbol);
+      const ceVega = calculateVega(spot, strike, expiryDate, iv, 0.07, timestamp, ceLtp, "CE", symbol);
+      const peVega = calculateVega(spot, strike, expiryDate, iv, 0.07, timestamp, peLtp, "PE", symbol);
+
       rows.push({
+        ce_delta: ceDelta,
+        ce_gamma: ceGamma,
+        ce_theta: ceTheta,
+        ce_vega: ceVega,
         ce_oi: ceOi,
         ce_chng_oi: ceChngOi,
         ce_vol: ceVol,
         ce_iv: iv,
         ce_ltp: ceLtp,
-        ce_chng: ceChng,
+        ce_chng: 0,
         strike,
         diff_oi: diffOi,
-        pe_chng: peChng,
+        pe_chng: 0,
         pe_ltp: peLtp,
         pe_iv: iv,
         pe_vol: peVol,
         pe_chng_oi: peChngOi,
         pe_oi: peOi,
+        pe_theta: peTheta,
+        pe_vega: peVega,
+        pe_gamma: peGamma,
+        pe_delta: peDelta,
       });
     }
 
     return rows;
   }
 
-  parseBseRows(rawJson, spot, atmStrike) {
+  parseBseRows(rawJson, spot, expiry, symbol = "SENSEX", timestamp = "") {
     if (!rawJson) return null;
     const table = Array.isArray(rawJson)
       ? rawJson
@@ -255,32 +272,73 @@ export class BSEOptionChainClient {
 
     if (!Array.isArray(table) || table.length === 0) return null;
 
+    const daysToExpiry = parseExpiryToDays(expiry, timestamp);
+    const isNearExpiry = daysToExpiry <= 1.0;
+
     const rows = [];
     for (const item of table) {
       const strike = num(
-        item.StrikePrice ?? item.strikePrice ?? item.Strike_Price ?? item.Strike ?? item.strprice
+        item.Strike_Price1 ?? item.Strike_Price ?? item.StrikePrice ?? item.strikePrice ?? item.strprice
       );
       if (strike === null) continue;
 
-      const ceOi = num(item.Call_OI ?? item.CE_OI ?? item.C_OI ?? item.CALL_OI ?? item.c_oi);
-      const peOi = num(item.Put_OI ?? item.PE_OI ?? item.P_OI ?? item.PUT_OI ?? item.p_oi);
-      const diffOi = ceOi !== null || peOi !== null ? (peOi ?? 0) - (ceOi ?? 0) : null;
+      const rowSpot = num(item.UlaValue) || spot;
+      const ceOi = num(item.C_Open_Interest ?? item.Call_OI ?? item.CE_OI) ?? 0;
+      const peOi = num(item.Open_Interest ?? item.Put_OI ?? item.PE_OI) ?? 0;
+      const diffOi = (peOi ?? 0) - (ceOi ?? 0);
+
+      const ceLtp = num(item.C_Last_Trd_Price ?? item.Call_LTP ?? item.CE_LTP ?? item.lastPrice) ?? 0;
+      const peLtp = num(item.Last_Trd_Price ?? item.Put_LTP ?? item.PE_LTP) ?? 0;
+
+      let ceIv = num(item.C_IV ?? item.Call_IV ?? item.CE_IV);
+      let peIv = num(item.IV ?? item.Put_IV ?? item.PE_IV);
+
+      // If IV from exchange is 0 or missing, solve from LTP using Black-Scholes
+      if (isNearExpiry || !ceIv || Number(ceIv) <= 0) {
+        if (ceLtp > 0) {
+          const solved = solveImpliedVolatility("CE", rowSpot, strike, daysToExpiry, ceLtp, 0.07, timestamp, symbol);
+          if (solved !== null) ceIv = solved;
+        }
+      }
+      if (isNearExpiry || !peIv || Number(peIv) <= 0) {
+        if (peLtp > 0) {
+          const solved = solveImpliedVolatility("PE", rowSpot, strike, daysToExpiry, peLtp, 0.07, timestamp, symbol);
+          if (solved !== null) peIv = solved;
+        }
+      }
+
+      const ceDelta = calculateDelta("CE", rowSpot, strike, expiry, ceIv, 0.07, timestamp, ceLtp, symbol);
+      const peDelta = calculateDelta("PE", rowSpot, strike, expiry, peIv, 0.07, timestamp, peLtp, symbol);
+      const ceGamma = calculateGamma(rowSpot, strike, expiry, ceIv, 0.07, timestamp, ceLtp, "CE", symbol);
+      const peGamma = calculateGamma(rowSpot, strike, expiry, peIv, 0.07, timestamp, peLtp, "PE", symbol);
+      const ceTheta = calculateTheta("CE", rowSpot, strike, expiry, ceIv, 0.07, timestamp, ceLtp, symbol);
+      const peTheta = calculateTheta("PE", rowSpot, strike, expiry, peIv, 0.07, timestamp, peLtp, symbol);
+      const ceVega = calculateVega(rowSpot, strike, expiry, ceIv, 0.07, timestamp, ceLtp, "CE", symbol);
+      const peVega = calculateVega(rowSpot, strike, expiry, peIv, 0.07, timestamp, peLtp, symbol);
 
       rows.push({
+        ce_delta: ceDelta,
+        ce_gamma: ceGamma,
+        ce_theta: ceTheta,
+        ce_vega: ceVega,
         ce_oi: ceOi,
-        ce_chng_oi: num(item.Call_Chng_OI ?? item.Call_Chg_OI ?? item.C_Chg_OI ?? item.CE_Chng_OI),
-        ce_vol: num(item.Call_Volume ?? item.Call_Vol ?? item.C_Vol ?? item.CE_Vol ?? item.totalTradedVolume),
-        ce_iv: num(item.Call_IV ?? item.CE_IV ?? item.C_IV ?? item.impliedVolatility),
-        ce_ltp: num(item.Call_LTP ?? item.CE_LTP ?? item.C_LTP ?? item.lastPrice ?? item.LTP),
-        ce_chng: num(item.Call_Change ?? item.CE_Change ?? item.C_Change ?? item.change),
+        ce_chng_oi: num(item.C_Absolute_Change_OI ?? item.Call_Chng_OI ?? item.Call_Chg_OI ?? item.CE_Chng_OI) ?? 0,
+        ce_vol: num(item.C_Vol_Traded ?? item.Call_Volume ?? item.Call_Vol ?? item.totalTradedVolume) ?? 0,
+        ce_iv: ceIv,
+        ce_ltp: ceLtp,
+        ce_chng: num(item.C_NetChange ?? item.Call_Change ?? item.CE_Change) ?? 0,
         strike,
         diff_oi: diffOi,
-        pe_chng: num(item.Put_Change ?? item.PE_Change ?? item.P_Change),
-        pe_ltp: num(item.Put_LTP ?? item.PE_LTP ?? item.P_LTP),
-        pe_iv: num(item.Put_IV ?? item.PE_IV ?? item.P_IV),
-        pe_vol: num(item.Put_Volume ?? item.Put_Vol ?? item.P_Vol ?? item.PE_Vol),
-        pe_chng_oi: num(item.Put_Chng_OI ?? item.Put_Chg_OI ?? item.P_Chg_OI ?? item.PE_Chng_OI),
+        pe_chng: num(item.NetChange ?? item.Put_Change ?? item.PE_Change) ?? 0,
+        pe_ltp: peLtp,
+        pe_iv: peIv,
+        pe_vol: num(item.Vol_Traded ?? item.Put_Volume ?? item.Put_Vol ?? item.PE_Vol) ?? 0,
+        pe_chng_oi: num(item.Absolute_Change_OI ?? item.Put_Chng_OI ?? item.Put_Chg_OI ?? item.PE_Chng_OI) ?? 0,
         pe_oi: peOi,
+        pe_theta: peTheta,
+        pe_vega: peVega,
+        pe_gamma: peGamma,
+        pe_delta: peDelta,
       });
     }
 
@@ -292,25 +350,78 @@ export class BSEOptionChainClient {
   async fetchSnapshot(symbol = "SENSEX", expiry = null, strikeWindow = 0) {
     const sym = symbol.trim().toUpperCase();
     const meta = BSE_METADATA[sym] || BSE_METADATA.SENSEX;
-    const expiryDates = getUpcomingBseExpiries(new Date(), 10);
-    const selectedExpiry = expiry || expiryDates[0];
 
-    const spotInfo = await this.fetchSpotPrice(sym);
-    const spot = spotInfo.spot;
-    const timestamp = spotInfo.timestamp || new Date().toLocaleTimeString("en-IN", { hour12: false });
+    // Generate fallback upcoming Thursday expiries
+    const defaultExpiries = getUpcomingBseExpiries(new Date(), 10);
+    let selectedExpiry = expiry || defaultExpiries[0];
+
+    // Try fetching live option chain from official BSE endpoint
+    let rawData = await this.fetchRawBseChain(selectedExpiry, meta.scripCode);
+
+    // Extract live spot and exchange timestamp from BSE response if present
+    let spot = null;
+    let timestamp = null;
+    const tableSource = rawData?.Table || rawData?.AllTable;
+    if (Array.isArray(tableSource) && tableSource.length > 0) {
+      for (const row of tableSource) {
+        const uVal = num(row.UlaValue);
+        if (uVal && uVal > 0) {
+          spot = uVal;
+          break;
+        }
+      }
+    }
+    if (rawData?.ASON?.DT_TM) {
+      timestamp = String(rawData.ASON.DT_TM).trim();
+    }
+
+    // If spot was not in BSE option chain, fetch from quote/Yahoo
+    if (!spot) {
+      const spotInfo = await this.fetchSpotPrice(sym);
+      spot = spotInfo.spot;
+      if (!timestamp) timestamp = spotInfo.timestamp;
+    }
+    if (!timestamp) {
+      timestamp = new Date().toLocaleTimeString("en-IN", { hour12: false });
+    }
+
+    // Collect real expiry dates from BSE response if available
+    const expiryDatesSet = new Set();
+    if (Array.isArray(tableSource)) {
+      for (const row of tableSource) {
+        if (row.End_TimeStamp) {
+          const norm = normalizeBseDate(row.End_TimeStamp);
+          if (norm) expiryDatesSet.add(norm);
+        }
+      }
+    }
+
+    // Merge with default Thursday expiries so full list is always available
+    for (const exp of defaultExpiries) {
+      expiryDatesSet.add(exp);
+    }
+
+    // Sort expiries chronologically
+    const expiryDates = Array.from(expiryDatesSet).sort((a, b) => {
+      const da = new Date(a.replace(/-/g, " "));
+      const db = new Date(b.replace(/-/g, " "));
+      return da - db;
+    });
+
+    if (!expiry) {
+      selectedExpiry = expiryDates[0];
+    }
 
     const atmStrike = Math.round(spot / meta.strikeStep) * meta.strikeStep;
 
-    // Try fetching from raw BSE endpoint
     let rows = null;
-    const rawData = await this.fetchRawBseChain(selectedExpiry, meta.scripCode);
     if (rawData) {
-      rows = this.parseBseRows(rawData, spot, atmStrike);
+      rows = this.parseBseRows(rawData, spot, selectedExpiry, sym, timestamp);
     }
 
-    // If live exchange endpoint returned no data or failed, use calibrated model around live spot
+    // If raw feed returned no rows for this expiry, use deterministic model around live spot
     if (!rows || rows.length === 0) {
-      rows = this.generateSyntheticRows(spot, atmStrike, meta.strikeStep, selectedExpiry);
+      rows = this.generateSyntheticRows(spot, atmStrike, meta.strikeStep, selectedExpiry, sym, timestamp);
     }
 
     let closestStrike = atmStrike;
